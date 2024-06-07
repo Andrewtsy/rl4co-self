@@ -2,6 +2,8 @@ from sklearn.cluster import KMeans
 from tensordict.tensordict import TensorDict
 
 from rl4co.envs import RL4COEnvBase
+from rl4co.models.zoo.am import AttentionModel
+import rl4co.models.zoo.decomposition
 
 def shout():
     print("Hello World")
@@ -91,4 +93,6 @@ if __name__ == "__main__":
 
     decomp = KmeansDecomp(4)
     td_new = decomp.forward(td)
+
     input("wait...")
+    pass
