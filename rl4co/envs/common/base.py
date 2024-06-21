@@ -139,6 +139,7 @@ class RL4COEnvBase(EnvBase, metaclass=abc.ABCMeta):
         if td is None or td.is_empty():
             td = self.generator(batch_size=batch_size)
         batch_size = [batch_size] if isinstance(batch_size, int) else batch_size
+        # There's a bug here, we should set the default batch size before generating the tensordict
         self.to(td.device)
         return super().reset(td, batch_size=batch_size)
 

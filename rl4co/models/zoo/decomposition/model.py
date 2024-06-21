@@ -75,8 +75,6 @@ class DECOMP(REINFORCE):
         td = self.env.reset(batch)
         out = self.naive_pol(td, self.env, return_actions=True)
 
-        for it in range(its):
-            td = self.decomp_pol(td, self.env, out["actions"])
-            out = self.pol(td, self.env)
+        
 
         

@@ -26,6 +26,7 @@ class BaryCenterDecomp(ImprovementPolicy):
         k: int = None,
         env_name: str = "cvrp",
         policy: ConstructivePolicy = None,
+        naive_policy: ConstructivePolicy = None,
 
     ):
         super().__init__()
@@ -34,6 +35,7 @@ class BaryCenterDecomp(ImprovementPolicy):
         self.env_name = env_name
         self.kmeans = KmeansPol(k)
         self.policy = policy
+        self.naive_policy = naive_policy
 
     def forward(
         self,
@@ -57,20 +59,25 @@ class BaryCenterDecomp(ImprovementPolicy):
         Returns:
             out: Dictionary containing actions, reward, log likelihood, 
         """
+        td_base = td.detach().copy()
+        sol = self.naive_policy(td, env)
+        actions = sol["actions"]
         for it in range(its):
-            td = self._pass(td, env, sol)
+            td = self.decompose(td, env, actions)
             td = env.reset(td)
             sol = self.policy(td, env)
-        return sol
+            actions = self.recompose(td, sol)
+            td = td_base.detach().copy()
+        return actions
 
 
-    def _pass(
+    def decompose(
         self,
         td: TensorDict = None,
         env: Union[str, RL4COEnvBase] = None,
         sol: dict = None,
     ) -> TensorDict:
-        """Forward pass of the decomposition policy.
+        """The actual decomposition pass of the decomposition policy.
         Primary override is decomposing a state into a number of subproblems.
         Takes as input a batch of current states and base solution actions run on them.
         Outputs an expanded tensordict state where the batch dimension is divided into
@@ -81,8 +88,8 @@ class BaryCenterDecomp(ImprovementPolicy):
             env: Environment our states are in
             sol: Dictionary of current best solution
         Returns:
-            out: Dictionary containing reward, log likelihood, 
-            and importantly, tensordict state decomposed into subproblems.
+            out: Decomposed tensordict with just [locs, demand, action_mask, depot, capacity]
+            ready to be reset by the environment
         """
         # Locations tensor that classifies each location by our current solution routes
         # And barycenters tensor that stores the barycenters of each route
@@ -93,6 +100,38 @@ class BaryCenterDecomp(ImprovementPolicy):
         td = Delegate.delegate(td, subproblems, self.k)
 
         return td
+    
+    def recompose(self,
+                  td: TensorDict = None,
+                  sol: dict = None,
+    ) -> TensorDict:
+        """Recomposition pass of the decomposition policy.
+        Takes as input the decomposed tensordict states and solutions, and recomposes
+        them into the original problem size with solutions.
+
+        Args:
+            td: Tensordict state
+            env: Environment our states are in
+            sol: Dictionary of current best solution
+        Returns:
+            out: Dictionary containing reward, log likelihood, 
+            and importantly, tensordict state decomposed into subproblems.
+        """
+        def endIndex(row):
+            i = len(row) - 1
+            while i > 0 and row[i] == 0:
+                i -= 1
+            return i + 1
+        
+        bs = out["actions"].shape[0] // self.k
+        actions = torch.zeros(size=(bs, bs * out["actions"].shape[1]))
+        for i in range(len(out["actions"]) // 4):
+            row = torch.tensor([])
+            for j in range(4):
+                row = torch.cat((row, out["actions"][4 * i + j, :endIndex(out["actions"][4 * i + j])]))
+            actions[i, :len(row)] = row
+        return actions
+
 
     def _assign_routes(
         td_locs: torch.Tensor = None,

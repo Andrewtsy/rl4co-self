@@ -27,27 +27,22 @@ class Delegate():
         batch_size = td["locs"].shape[0] * k
         subproblem_size = Delegate._find_sps(loc_idx)
 
-        td_new = TensorDict({"locs": torch.zeros(*(batch_size, subproblem_size + 1, 2)),
+        td_new = TensorDict({"locs": torch.zeros(*(batch_size, subproblem_size, 2)),
                              "demand": torch.zeros(*(batch_size, subproblem_size)),
-                             "visited": torch.ones(*(batch_size, subproblem_size + 1)),
-                             "action_mask": torch.zeros(*(batch_size, subproblem_size + 1), dtype=torch.bool)}, 
+                             "problem_mask": torch.zeros(*(batch_size, subproblem_size), dtype=torch.bool),
+                             "depot": td["depot"].repeat(1, k).reshape(batch_size, -1),
+                             "capacity": td["capacity"].repeat(1, k).reshape(batch_size, -1)},
                              batch_size=batch_size)
 
         for row in range(len(td_new["locs"])):
-            i = row // k
-            l = row % k
+            i, l = row // k, row % k
 
             idx = torch.where(loc_idx[i] == l)[0]
 
-            td_new["locs"][row, 0] = td["locs"][i, 0]
-            td_new["locs"][row, 1:len(idx) + 1, :] = td["locs"][:, 1:][i, idx, :]
+            td_new["locs"][row, :len(idx), :] = td["locs"][i, 1:][idx, :]
 
             td_new["demand"][row, :len(idx)] = td["demand"][i, idx]
-            td_new["visited"][row, 1:len(idx) + 1] = torch.zeros(len(idx))
-            td_new["action_mask"][row, :len(idx) + 1] = torch.ones(len(idx) + 1, dtype=torch.bool)
-
-        for key in td.keys() - td_new.keys():
-            td_new[key] = td[key].repeat(1, k).reshape(batch_size, -1)
+            td_new["problem_mask"][row, :len(idx)] = torch.ones(len(idx), dtype=torch.bool)
 
         return td_new
     
