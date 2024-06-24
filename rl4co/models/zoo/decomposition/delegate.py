@@ -54,6 +54,13 @@ class Delegate():
                 locsp_idx[i, j] = labels[i, loc_idx[i, j]]
         return locsp_idx
 
+    @staticmethod
+    def endIndex(row):
+        i = len(row) - 1
+        while i > 0 and row[i] == 0:
+            i -= 1
+        return i + 1
+
     
     @staticmethod
     def _find_sps(
