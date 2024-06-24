@@ -5,12 +5,9 @@ from torch import nn
 from tensordict.tensordict import TensorDict
 
 from rl4co.envs import RL4COEnvBase
-from rl4co.models.zoo.am import AttentionModel
+from rl4co.models.zoo.am import AttentionModel, AttentionModelPolicy
 from rl4co.models.common import ImprovementPolicy, ConstructivePolicy
 from rl4co.models.zoo.decomposition.delegate import Delegate
-
-def shout():
-    print("Hello World")
 
 class BaryCenterDecomp(ImprovementPolicy):
     """Baseline Barycenter decomposition policy using Kmeans clustering.
@@ -26,11 +23,25 @@ class BaryCenterDecomp(ImprovementPolicy):
         k: int = None,
         env_name: str = "cvrp",
         policy: ConstructivePolicy = None,
+        policy_kwargs: dict = {},
         naive_policy: ConstructivePolicy = None,
-
     ):
         super().__init__()
+
+        # Set default policy to attention model from 
+        # Kool et al. (Attention learn to solve routing problems!)
+        if policy is None:
+            policy_kwargs_with_defaults = {
+                "num_encoder_layers": 6,
+                "normalization": "instance",
+                "use_graph_context": False,
+            }
+            policy_kwargs_with_defaults.update(policy_kwargs)
+            policy = AttentionModelPolicy(env_name=env_name, **policy_kwargs_with_defaults)
         
+        if naive_policy is None:
+            naive_policy = policy
+
         self.k = k
         self.env_name = env_name
         self.kmeans = KmeansPol(k)
@@ -41,13 +52,12 @@ class BaryCenterDecomp(ImprovementPolicy):
         self,
         td: TensorDict = None,
         env: Union[str, RL4COEnvBase] = None,
-        sol: dict = None,
         its: int = None,
         phase: str = "train",
         return_actions: bool = False,
         return_entropy: bool = False,
         return_init_embeds: bool = False,
-    ) -> TensorDict:
+    ) -> dict:
         """Forward pass of the decomposition policy.
         Full run of decomposition.
 
@@ -60,15 +70,14 @@ class BaryCenterDecomp(ImprovementPolicy):
             out: Dictionary containing actions, reward, log likelihood, 
         """
         td_base = td.detach().copy()
-        sol = self.naive_policy(td, env)
-        actions = sol["actions"]
+        sol = self.naive_policy(td, env, return_actions=True)
         for it in range(its):
-            td = self.decompose(td, env, actions)
+            td = self.decompose(td, env, sol)
             td = env.reset(td)
-            sol = self.policy(td, env)
-            actions = self.recompose(td, sol)
+            sol = self.policy(td, env, return_actions=True)
+            sol = self.recompose(td, sol)
             td = td_base.detach().copy()
-        return actions
+        return sol
 
 
     def decompose(
@@ -116,21 +125,18 @@ class BaryCenterDecomp(ImprovementPolicy):
         Returns:
             out: Dictionary containing reward, log likelihood, 
             and importantly, tensordict state decomposed into subproblems.
-        """
-        def endIndex(row):
-            i = len(row) - 1
-            while i > 0 and row[i] == 0:
-                i -= 1
-            return i + 1
-        
-        bs = out["actions"].shape[0] // self.k
-        actions = torch.zeros(size=(bs, bs * out["actions"].shape[1]))
-        for i in range(len(out["actions"]) // 4):
+        """        
+        out = {}
+        bs = sol["actions"].shape[0] // self.k
+        out["actions"] = torch.zeros(size=(bs, bs * sol["actions"].shape[1]), dtype=torch.int)
+        for i in range(bs):
             row = torch.tensor([])
-            for j in range(4):
-                row = torch.cat((row, out["actions"][4 * i + j, :endIndex(out["actions"][4 * i + j])]))
-            actions[i, :len(row)] = row
-        return actions
+            for j in range(min(self.k, sol["actions"].shape[0] - (i * self.k))):
+                row = torch.cat((row, sol["actions"][4 * i + j, :Delegate.endIndex(sol["actions"][4 * i + j])]))
+            out["actions"][i, :len(row)] = row
+        out["reward"] = sol["reward"].view((bs, self.k)).sum(dim=1)
+        out["log_likelihood"] = torch.zeros((bs,))
+        return out
 
 
     def _assign_routes(
@@ -151,14 +157,15 @@ class BaryCenterDecomp(ImprovementPolicy):
         loc_idx = torch.zeros(td_locs.shape[0], td_locs.shape[1], dtype=torch.int16)
         barycenters = torch.zeros_like(td_locs)
         for i in range(len(loc_idx)):
-            depot_idx = (actions[i] == 0).nonzero().reshape(-1)
-            routes = torch.tensor_split(actions[i], depot_idx)
+            row = actions[i, :Delegate.endIndex(actions[i])]
+            depot_idx = (row == 0).nonzero().reshape(-1)
+            routes = torch.tensor_split(row, depot_idx)
             for j, route in enumerate(routes):
                 coordinate_sum = torch.Tensor([0, 0])
                 for node in route:
                     if not node == 0:
-                        loc_idx[i, node - 1] = j
-                        coordinate_sum += td_locs[i, node - 1]
+                        loc_idx[i, int(node) - 1] = j
+                        coordinate_sum += td_locs[i, int(node) - 1]
                 barycenters[i, j] = coordinate_sum / len(route)
         return loc_idx, barycenters
 
@@ -204,8 +211,6 @@ class KmeansPol():
         raise NotImplementedError
 
 if __name__ == "__main__":
-    shout()
-
     import torch
     from rl4co.envs import CVRPEnv
     from rl4co.models.zoo import AttentionModel
