@@ -15,20 +15,26 @@ class BaryCenterDecomp(ImprovementPolicy):
     Then, use Kmeans clustering to cluster the nearest routes into k CVRP subproblems.
     
     Args:
-        k: Number of clusters/subproblems
-        env: Problem environment"""
+        num_subproblems: Number of clusters/subproblems
+        env_name: Problem environment,
+        policy: Constructive policy used iteratively on subproblems
+        policy_kwargs: Keyword arguments
+        naive_policy: Constructive policy to generate initial solution. Should be highly efficient.
+        naive_policy_kwargs: Keyword arguments
+        """
     
     def __init__(
         self,
-        k: int = None,
+        num_subproblems: int = None,
         env_name: str = "cvrp",
         policy: ConstructivePolicy = None,
         policy_kwargs: dict = {},
         naive_policy: ConstructivePolicy = None,
+        naive_policy_kwargs: dict = {}
     ):
         super().__init__()
 
-        # Set default policy to attention model from 
+        # Set default policies to attention model from 
         # Kool et al. (Attention learn to solve routing problems!)
         if policy is None:
             policy_kwargs_with_defaults = {
@@ -40,11 +46,17 @@ class BaryCenterDecomp(ImprovementPolicy):
             policy = AttentionModelPolicy(env_name=env_name, **policy_kwargs_with_defaults)
         
         if naive_policy is None:
-            naive_policy = policy
+            naive_policy_kwargs_with_defaults = {
+                "num_encoder_layers": 6,
+                "normalization": "instance",
+                "use_graph_context": False,
+            }
+            naive_policy_kwargs_with_defaults.update(naive_policy_kwargs)
+            naive_policy = AttentionModelPolicy(env_name=env_name, **naive_policy_kwargs)
 
-        self.k = k
+        self.k = num_subproblems
         self.env_name = env_name
-        self.kmeans = KmeansPol(k)
+        self.kmeans = KmeansPol(self.k)
         self.policy = policy
         self.naive_policy = naive_policy
 
@@ -69,14 +81,23 @@ class BaryCenterDecomp(ImprovementPolicy):
         Returns:
             out: Dictionary containing actions, reward, log likelihood, 
         """
-        td_base = td.detach().copy()
+        # Cache copy of our state dictionary to assist recomposition.
+        td_base = td.copy()
+        # Generate initial solution using our naive policy
         sol = self.naive_policy(td, env, return_actions=True)
-        for it in range(its):
+        # Iterative loop to improve our solution
+        for _ in range(its):
+            # Decompose our state td and sol tensor into its k subproblems
+            # Returned td is reset to prepare for policy
             td = self.decompose(td, env, sol)
             td = env.reset(td)
+            td["action_mask"] = torch.concat((torch.zeros((td.batch_size[0], 1), dtype=bool), td["problem_mask"]), dim=1)
+            # Apply our constructive policy to each subproblem using parallelization
             sol = self.policy(td, env, return_actions=True)
+            # Recompose our decomposed state and solution to the original problem sizes
+            # To save complexity at the cost of some memory, we use our cached state td
             sol = self.recompose(td, sol)
-            td = td_base.detach().copy()
+            td = td_base.copy()
         return sol
 
 
@@ -102,11 +123,11 @@ class BaryCenterDecomp(ImprovementPolicy):
         """
         # Locations tensor that classifies each location by our current solution routes
         # And barycenters tensor that stores the barycenters of each route
-        locs_idx, barycenters = BaryCenterDecomp._assign_routes(td["locs"][:, 1:, :], sol['actions'])
-        # Kmeans cluster into subproblems
-        subproblems = self.kmeans(barycenters)
+        locs_idx, barycenters = BaryCenterDecomp._assign_routes(td["locs"], sol['actions'])
+        # Kmeans cluster into subproblems. locs_idx stores the subproblem of each location
+        locs_idx = self.kmeans(barycenters, locs_idx)
         # Reformat our td to count each new subproblem as its own batch element
-        td = Delegate.delegate(td, subproblems, self.k)
+        td = Delegate.delegate(td, locs_idx, self.k)
 
         return td
     
@@ -127,13 +148,19 @@ class BaryCenterDecomp(ImprovementPolicy):
             and importantly, tensordict state decomposed into subproblems.
         """        
         out = {}
-        bs = sol["actions"].shape[0] // self.k
-        out["actions"] = torch.zeros(size=(bs, bs * sol["actions"].shape[1]), dtype=torch.int)
+        bs = sol["actions"].shape[0] // self.k # Batch size
+        # Tensor of the actions taken in order, sewn together from the subproblem sols
+        out["actions"] = torch.zeros(size=(bs, bs * (sol["actions"].shape[1] + 1)), dtype=torch.int)
         for i in range(bs):
             row = torch.tensor([])
+            # Iteratively add the subproblem solutions together
             for j in range(min(self.k, sol["actions"].shape[0] - (i * self.k))):
-                row = torch.cat((row, sol["actions"][4 * i + j, :Delegate.endIndex(sol["actions"][4 * i + j])]))
+                routes = td["locs_idx"][i * self.k + j][Delegate.no_pad(sol["actions"][i * self.k + j])]
+                row = torch.cat((row, routes, torch.tensor([0,])))
             out["actions"][i, :len(row)] = row
+        sps = max(len(Delegate.no_pad(out["actions"][b])) for b in range(len(out["actions"])))
+        out["actions"] = out["actions"][:, :sps]
+        # Sum the rewards and dummy zero out the log likelihoods
         out["reward"] = sol["reward"].view((bs, self.k)).sum(dim=1)
         out["log_likelihood"] = torch.zeros((bs,))
         return out
@@ -149,24 +176,30 @@ class BaryCenterDecomp(ImprovementPolicy):
         the state.
 
         Args:
-            loc_idx: Zeroed out tensor corresponding to the locations of our state
+            td_locs: Tensor of location coordinates
             actions: Tensor of actions taken by the policy
         Returns:
-            loc_idx: Modified tensor containing the route index each of our locations is contained in
+            loc_idx: Tensor containing the route index each of our locations is contained in
+            barycenters: Tensor containing the coordinates of the barycenters of each of our tours
         """
+        # loc_idx, with the same shape as the td_locs, will tell us the tour number
+        # node j has in row i
         loc_idx = torch.zeros(td_locs.shape[0], td_locs.shape[1], dtype=torch.int16)
-        barycenters = torch.zeros_like(td_locs)
+        # barycenters will tell us the barycenter coordinates of tour i at position i
+        # First, find the maximum number of tours per any batch. 
+        # Then, create our tensor shape based on that.
+        num_routes = max([int((Delegate.no_pad(row) == 0).sum()) + 1 for row in actions])
+        barycenters = torch.zeros((td_locs.shape[0], num_routes, 2)) # Stop padding all the routes
+        # Populate loc_idx tensor
         for i in range(len(loc_idx)):
-            row = actions[i, :Delegate.endIndex(actions[i])]
+            row = Delegate.no_pad(actions[i])
             depot_idx = (row == 0).nonzero().reshape(-1)
             routes = torch.tensor_split(row, depot_idx)
+            # After splitting the routes up, we can now assign our route nodes and barycenters
             for j, route in enumerate(routes):
-                coordinate_sum = torch.Tensor([0, 0])
-                for node in route:
-                    if not node == 0:
-                        loc_idx[i, int(node) - 1] = j
-                        coordinate_sum += td_locs[i, int(node) - 1]
-                barycenters[i, j] = coordinate_sum / len(route)
+                route = route[1:] if route[0] == 0 else route
+                loc_idx[i, route] = j
+                barycenters[i, j] = td_locs[i, route].mean(dim=0)
         return loc_idx, barycenters
 
 class KmeansPol():
@@ -191,17 +224,25 @@ class KmeansPol():
 
     def __call__(
         self,
-        barycenters: torch.Tensor = None
+        barycenters: torch.Tensor = None,
+        locs_idx: torch.Tensor = None
     ) -> RL4COEnvBase:
         """Kmeans split the environment
         Args:
-            td: Tensordict state
+            barycenters: Tensor of barycenters
+            locs_idx: Tensor of locations by their tours
         Returns:
-            env: Transformed environment
+            locs_idx: Tensor of locations by their subproblems
         """
-        labels = torch.vstack([torch.tensor(self.kmeans.fit_predict(ex)) for ex in barycenters])
+        subproblems = torch.zeros_like(locs_idx)
+        for i in range(locs_idx.shape[0]):
+            # For each batch, classify each route into subproblems
+            labels = torch.tensor(self.kmeans.fit_predict(Delegate.no_pad(barycenters[i], torch.Tensor([0, 0]))))
+            for j in range(len(labels)):
+                # For each subproblem, note which nodes belong to them
+                subproblems[i, locs_idx[i] == j] = labels[j]
 
-        return labels
+        return subproblems
 
     def _kmeans(
         self

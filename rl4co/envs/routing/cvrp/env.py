@@ -89,7 +89,10 @@ class CVRPEnv(RL4COEnvBase):
         visited = td["visited"].scatter(-1, current_node, 1)
 
         # SECTION: get done
-        done = visited.sum(-1) == visited.size(-1)
+        # done = visited.sum(-1) == visited.size(-1)
+        # Andrew's edit
+
+        done = visited.sum(-1) == (td["problem_mask"].sum(-1) + 1 if "problem_mask" in td.keys() else visited.size(-1))
         reward = torch.zeros_like(done)
 
         td.update(
@@ -132,10 +135,10 @@ class CVRPEnv(RL4COEnvBase):
             batch_size=batch_size,
         )
         # Andrew's edits
-        if "action_mask" not in td.keys():
-            td_reset.set("action_mask", self.get_action_mask(td_reset))
-        else:
-            td_reset["action_mask"] = td["action_mask"]
+        # if "action_mask" not in td.keys():
+        td_reset.set("action_mask", self.get_action_mask(td_reset))
+        # else:
+        #     td_reset["action_mask"] = td["action_mask"]
         return td_reset
 
     @staticmethod
@@ -145,6 +148,10 @@ class CVRPEnv(RL4COEnvBase):
 
         # Nodes that cannot be visited are already visited or too much demand to be served now
         mask_loc = td["visited"][..., 1:].to(exceeds_cap.dtype) | exceeds_cap
+        
+        # Andrew's edits
+        if "problem_mask" in td.keys():
+            mask_loc = mask_loc | ~td["problem_mask"]
 
         # Cannot visit the depot if just visited and still unserved nodes
         mask_depot = (td["current_node"] == 0) & ((mask_loc == 0).int().sum(-1) > 0)[
@@ -171,12 +178,12 @@ class CVRPEnv(RL4COEnvBase):
         sorted_pi = actions.data.sort(1)[0]
 
         # Sorting it should give all zeros at front and then 1...n
-        assert (
-            torch.arange(1, graph_size + 1, out=sorted_pi.data.new())
-            .view(1, -1)
-            .expand(batch_size, graph_size)
-            == sorted_pi[:, -graph_size:]
-        ).all() and (sorted_pi[:, :-graph_size] == 0).all(), "Invalid tour"
+        # assert (
+        #     torch.arange(1, graph_size + 1, out=sorted_pi.data.new())
+        #     .view(1, -1)
+        #     .expand(batch_size, graph_size)
+        #     == sorted_pi[:, -graph_size:]
+        # ).all() and (sorted_pi[:, :-graph_size] == 0).all(), "Invalid tour"
 
         # Visiting depot resets capacity so we add demand = -capacity (we make sure it does not become negative)
         demand_with_depot = torch.cat((-td["vehicle_capacity"], td["demand"]), 1)

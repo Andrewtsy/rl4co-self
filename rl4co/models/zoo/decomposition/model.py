@@ -26,23 +26,22 @@ class DECOMP(REINFORCE):
     def __init__(
         self,
         env: RL4COEnvBase,
-        policy: ConstructivePolicy = None,
-        policy_kwargs={},
+        decomp_policy: ImprovementPolicy = None,
+        decomp_policy_kwargs={},
         baseline: str = "shared",
         **kwargs,
     ):
         
         # Set default decomposition policy to barycenter clustering technique from 
         # Santini et al. (Decomposition strategies for vehicle routing heuristics)
-        if policy is None:
+        if decomp_policy is None:
             decomp_policy_kwargs_with_defaults = {
-                "n_clusters": 16,
+                "num_subproblems": 4
             }
-            decomp_policy_kwargs_with_defaults.update(policy_kwargs)
+            decomp_policy_kwargs_with_defaults.update(decomp_policy_kwargs)
             policy = BaryCenterDecomp(env_name=env.name, **decomp_policy_kwargs_with_defaults)
 
         super().__init__(env, policy, baseline, **kwargs)
-        self.policy = policy
 
     def shared_step(
         self, 
@@ -53,7 +52,7 @@ class DECOMP(REINFORCE):
         dataloader_idx: int = None
     ):
         """Step method.
-        This overwritten method alters environment states into decomposed states before applying the policy.
+        This overwritten method performs a train/test/eval step with the policy.
         """
         td = self.env.reset(batch)
         
