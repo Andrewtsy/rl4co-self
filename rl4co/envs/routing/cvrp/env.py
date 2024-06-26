@@ -134,11 +134,7 @@ class CVRPEnv(RL4COEnvBase):
             },
             batch_size=batch_size,
         )
-        # Andrew's edits
-        # if "action_mask" not in td.keys():
         td_reset.set("action_mask", self.get_action_mask(td_reset))
-        # else:
-        #     td_reset["action_mask"] = td["action_mask"]
         return td_reset
 
     @staticmethod
