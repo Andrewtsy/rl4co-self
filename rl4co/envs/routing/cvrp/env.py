@@ -16,6 +16,11 @@ from rl4co.utils.ops import gather_by_index, get_tour_length
 from rl4co.utils.pylogger import get_pylogger
 
 from .generator import CVRPGenerator
+try:
+    from .local_search import local_search
+except:
+    # In case some dependencies are not installed (e.g., pyvrp)
+    local_search = None
 from .render import render
 
 log = get_pylogger(__name__)
@@ -136,27 +141,23 @@ class CVRPEnv(RL4COEnvBase):
     @staticmethod
     def get_action_mask(td: TensorDict) -> torch.Tensor:
         # For demand steps_dim is inserted by indexing with id, for used_capacity insert node dim for broadcasting
-        exceeds_cap = (
-            td["demand"] + td["used_capacity"] > td["vehicle_capacity"]
-        )
+        exceeds_cap = td["demand"] + td["used_capacity"] > td["vehicle_capacity"]
 
         # Nodes that cannot be visited are already visited or too much demand to be served now
         mask_loc = td["visited"][..., 1:].to(exceeds_cap.dtype) | exceeds_cap
 
         # Cannot visit the depot if just visited and still unserved nodes
-        mask_depot = (td["current_node"] == 0) & ((mask_loc == 0).int().sum(-1) > 0)[:, None]
+        mask_depot = (td["current_node"] == 0) & ((mask_loc == 0).int().sum(-1) > 0)[
+            :, None
+        ]
         return ~torch.cat((mask_depot, mask_loc), -1)
 
     def _get_reward(self, td: TensorDict, actions: TensorDict) -> TensorDict:
-        # Gather dataset in order of tour
-        batch_size = td["locs"].shape[0]
-        depot = td["locs"][..., 0:1, :]
+        # Gather locations in order of tour (add depot since we start and end there)
         locs_ordered = torch.cat(
             [
-                depot,
-                gather_by_index(td["locs"], actions).reshape(
-                    [batch_size, actions.size(-1), 2]
-                ),
+                td["locs"][..., 0:1, :],  # depot
+                gather_by_index(td["locs"], actions),  # order locations
             ],
             dim=1,
         )
@@ -234,6 +235,28 @@ class CVRPEnv(RL4COEnvBase):
         self.reward_spec = UnboundedContinuousTensorSpec(shape=(1,))
         self.done_spec = UnboundedDiscreteTensorSpec(shape=(1,), dtype=torch.bool)
 
+    def replace_selected_actions(self, cur_actions: torch.Tensor, new_actions: torch.Tensor, selection_mask: torch.Tensor) -> torch.Tensor:
+        """
+        Replace selected current actions with updated actions based on `selection_mask`.
+
+        Args:
+            cur_actions [batch_size, num_loc]
+            new_actions [batch_size, num_loc]
+            selection_mask [batch_size,]
+        """
+        diff_length = cur_actions.size(-1) - new_actions.size(-1)
+        if diff_length > 0:
+            new_actions = torch.nn.functional.pad(new_actions, (0, diff_length, 0, 0), mode="constant", value=0)
+        elif diff_length < 0:
+            cur_actions = torch.nn.functional.pad(cur_actions, (0, -diff_length, 0, 0), mode="constant", value=0)
+        cur_actions[selection_mask] = new_actions[selection_mask]
+        return cur_actions
+
     @staticmethod
-    def render(td: TensorDict, actions: torch.Tensor=None, ax = None):
+    def local_search(td: TensorDict, actions: torch.Tensor, **kwargs) -> torch.Tensor:
+        assert local_search is not None, "Cannot import local_search module. Check if `pyvrp` is installed."
+        return local_search(td, actions, **kwargs)
+
+    @staticmethod
+    def render(td: TensorDict, actions: torch.Tensor = None, ax=None):
         return render(td, actions, ax)

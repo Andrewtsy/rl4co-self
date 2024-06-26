@@ -172,11 +172,11 @@ class RL4COLitModule(LightningModule, metaclass=abc.ABCMeta):
     def configure_optimizers(self, parameters=None):
         """
         Args:
-            parameters: parameters to be optimized. If None, will use `self.policy.parameters()
+            parameters: parameters to be optimized. If None, will use `self.parameters()`, i.e. all parameters
         """
 
         if parameters is None:
-            parameters = self.policy.parameters()
+            parameters = self.parameters()
 
         log.info(f"Instantiating optimizer <{self._optimizer_name_or_cls}>")
         if isinstance(self._optimizer_name_or_cls, str):
@@ -213,7 +213,9 @@ class RL4COLitModule(LightningModule, metaclass=abc.ABCMeta):
                 "monitor": self.lr_scheduler_monitor,
             }
 
-    def log_metrics(self, metric_dict: dict, phase: str, dataloader_idx: int = None):
+    def log_metrics(
+        self, metric_dict: dict, phase: str, dataloader_idx: Union[int, None] = None
+    ):
         """Log metrics to logger and progress bar"""
         metrics = getattr(self, f"{phase}_metrics")
         dataloader_name = ""

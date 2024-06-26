@@ -15,7 +15,6 @@ log = get_pylogger(__name__)
 
 
 class FJSPGenerator(Generator):
-
     """Data generator for the Flexible Job-Shop Scheduling Problem (FJSP).
 
     Args:
@@ -45,6 +44,7 @@ class FJSPGenerator(Generator):
         max_processing_time: int = 20,
         min_eligible_ma_per_op: int = 1,
         max_eligible_ma_per_op: int = None,
+        same_mean_per_op: bool = True,
         **unused_kwargs,
     ):
         self.num_jobs = num_jobs
@@ -58,7 +58,7 @@ class FJSPGenerator(Generator):
         # determines whether to use a fixed number of total operations or let it vary between instances
         # NOTE: due to the way rl4co builds datasets, we need a fixed size here
         self.n_ops_max = max_ops_per_job * num_jobs
-
+        self.same_mean_per_op = same_mean_per_op
         # FFSP environment doen't have any other kwargs
         if len(unused_kwargs) > 0:
             log.error(f"Found {len(unused_kwargs)} unused kwargs: {unused_kwargs}")
@@ -86,12 +86,33 @@ class FJSPGenerator(Generator):
         ma_ops_edges = ma_ops_edges_unshuffled.gather(2, idx).transpose(1, 2)
 
         # (bs, max_ops, machines)
-        proc_times = torch.ones((bs, n_ops_max, self.num_mas))
-        proc_times = torch.randint(
-            self.min_processing_time,
-            self.max_processing_time + 1,
-            size=(bs, self.num_mas, n_ops_max),
-        )
+        if self.same_mean_per_op:
+            proc_times = torch.ones((bs, self.num_mas, n_ops_max))
+            proc_time_means = torch.randint(
+                self.min_processing_time, self.max_processing_time, (bs, n_ops_max)
+            )
+            low_bounds = torch.maximum(
+                torch.full_like(proc_times, self.min_processing_time),
+                (proc_time_means * (1 - 0.2)).round().unsqueeze(1),
+            )
+            high_bounds = (
+                torch.minimum(
+                    torch.full_like(proc_times, self.max_processing_time),
+                    (proc_time_means * (1 + 0.2)).round().unsqueeze(1),
+                )
+                + 1
+            )
+            proc_times = (
+                torch.randint(2**63 - 1, size=proc_times.shape)
+                % (high_bounds - low_bounds)
+                + low_bounds
+            )
+        else:
+            proc_times = torch.randint(
+                self.min_processing_time,
+                self.max_processing_time + 1,
+                size=(bs, self.num_mas, n_ops_max),
+            )
 
         # remove proc_times for which there is no corresponding ma-ops connection
         proc_times = proc_times * ma_ops_edges
@@ -187,6 +208,8 @@ class FJSPFileGenerator(Generator):
         self.num_mas = num_machines
         self.num_jobs = num_jobs
         self.max_ops_per_job = max_ops_per_job
+        self.n_ops_max = max_ops_per_job * num_jobs
+
         self.start_idx = 0
 
     def _generate(self, batch_size: List[int]) -> TensorDict:
@@ -198,6 +221,8 @@ class FJSPFileGenerator(Generator):
         end_idx = self.start_idx + batch_size
         td = self.td[self.start_idx : end_idx]
         self.start_idx += batch_size
+        if self.start_idx >= self.num_samples:
+            self.start_idx = 0
         return td
 
     @staticmethod
@@ -210,7 +235,4 @@ class FJSPFileGenerator(Generator):
             if os.path.isfile(os.path.join(path, f))
         ]
         assert len(files) > 0
-        files = sorted(
-            files, key=lambda f: int(os.path.splitext(os.path.basename(f))[0][:4])
-        )
         return files
