@@ -90,9 +90,9 @@ class CVRPEnv(RL4COEnvBase):
 
         # SECTION: get done
         # done = visited.sum(-1) == visited.size(-1)
+        
         # Andrew's edit
-
-        done = visited.sum(-1) == (td["problem_mask"].sum(-1) + 1 if "problem_mask" in td.keys() else visited.size(-1))
+        done = visited.sum(-1) >= (td["problem_mask"].sum(-1) + 1 if "problem_mask" in td.keys() else visited.size(-1))
         reward = torch.zeros_like(done)
 
         td.update(
@@ -174,12 +174,12 @@ class CVRPEnv(RL4COEnvBase):
         sorted_pi = actions.data.sort(1)[0]
 
         # Sorting it should give all zeros at front and then 1...n
-        # assert (
-        #     torch.arange(1, graph_size + 1, out=sorted_pi.data.new())
-        #     .view(1, -1)
-        #     .expand(batch_size, graph_size)
-        #     == sorted_pi[:, -graph_size:]
-        # ).all() and (sorted_pi[:, :-graph_size] == 0).all(), "Invalid tour"
+        assert (
+            torch.arange(1, graph_size + 1, out=sorted_pi.data.new())
+            .view(1, -1)
+            .expand(batch_size, graph_size)
+            == sorted_pi[:, -graph_size:]
+        ).all() and (sorted_pi[:, :-graph_size] == 0).all(), "Invalid tour"
 
         # Visiting depot resets capacity so we add demand = -capacity (we make sure it does not become negative)
         demand_with_depot = torch.cat((-td["vehicle_capacity"], td["demand"]), 1)

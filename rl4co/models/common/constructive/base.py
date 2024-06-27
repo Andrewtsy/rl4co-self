@@ -167,6 +167,7 @@ class ConstructivePolicy(nn.Module):
         return_sum_log_likelihood: bool = True,
         actions=None,
         max_steps=1_000_000,
+        encoder_mask=None, # Added by Andrew
         **decoding_kwargs,
     ) -> dict:
         """Forward pass of the policy.
@@ -192,7 +193,7 @@ class ConstructivePolicy(nn.Module):
         """
 
         # Encoder: get encoder output and initial embeddings from initial state
-        hidden, init_embeds = self.encoder(td)
+        hidden, init_embeds = self.encoder(td, encoder_mask) # Encoder mask added by Andrew
 
         # Instantiate environment if needed
         if isinstance(env, str) or env is None:

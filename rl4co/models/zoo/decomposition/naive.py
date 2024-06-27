@@ -84,21 +84,29 @@ class BaryCenterDecomp(ImprovementPolicy):
         # Cache copy of our state dictionary to assist recomposition.
         td_base = td.copy()
         # Generate initial solution using our naive policy
+        # Refrain from checking solution validity until the end of the evaluation
+        env.check_solution = False
         sol = self.naive_policy(td, env, return_actions=True)
+        print(sol["reward"])
         # Iterative loop to improve our solution
         for _ in range(its):
             # Decompose our state td and sol tensor into its k subproblems
             # Returned td is reset to prepare for policy
             td = self.decompose(td, env, sol)
             td = env.reset(td)
-            td["action_mask"] = torch.concat((torch.zeros((td.batch_size[0], 1), dtype=bool), td["problem_mask"]), dim=1)
+            # td["action_mask"] = torch.concat((torch.zeros((td.batch_size[0], 1), dtype=bool), td["problem_mask"]), dim=1)
             # Apply our constructive policy to each subproblem using parallelization
             sol = self.policy(td, env, return_actions=True)
             # Recompose our decomposed state and solution to the original problem sizes
             # To save complexity at the cost of some memory, we use our cached state td
+            td_copy = td.clone()
+            sol_copy = sol["actions"].clone()
             sol = self.recompose(td, sol)
+            print(sol["reward"])
             td = td_base.copy()
-        return sol
+        env.check_solution = True
+        env.check_solution_validity(td, sol["actions"])
+        return td_copy, sol_copy
 
 
     def decompose(
@@ -150,7 +158,7 @@ class BaryCenterDecomp(ImprovementPolicy):
         out = {}
         bs = sol["actions"].shape[0] // self.k # Batch size
         # Tensor of the actions taken in order, sewn together from the subproblem sols
-        out["actions"] = torch.zeros(size=(bs, bs * (sol["actions"].shape[1] + 1)), dtype=torch.int)
+        out["actions"] = torch.zeros(size=(bs, self.k * (sol["actions"].shape[1] + 1)), dtype=torch.int64)
         for i in range(bs):
             row = torch.tensor([])
             # Iteratively add the subproblem solutions together
