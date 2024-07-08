@@ -2,7 +2,8 @@ from tensordict.tensordict import TensorDict
 import torch
 
 class Delegate():
-    """Light class to split up a tensordict state into groups based on cluster labels
+    """Light class to split up a tensordict state into groups based on cluster labels.
+    Like a Utils class. Will merge into other classes later.
     """
 
     def __init__(
