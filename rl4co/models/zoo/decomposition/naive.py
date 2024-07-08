@@ -87,26 +87,29 @@ class BaryCenterDecomp(ImprovementPolicy):
         # Refrain from checking solution validity until the end of the evaluation
         env.check_solution = False
         sol = self.naive_policy(td, env, return_actions=True)
-        print(sol["reward"])
+        intermediates = []
+        intermediates.append(sol["actions"].clone())
+        # print(sol["reward"])
         # Iterative loop to improve our solution
         for _ in range(its):
             # Decompose our state td and sol tensor into its k subproblems
             # Returned td is reset to prepare for policy
             td = self.decompose(td, env, sol)
             td = env.reset(td)
-            # td["action_mask"] = torch.concat((torch.zeros((td.batch_size[0], 1), dtype=bool), td["problem_mask"]), dim=1)
+            td["action_mask"] = torch.concat((torch.ones((td.batch_size[0], 1), dtype=bool), td["problem_mask"]), dim=1)
             # Apply our constructive policy to each subproblem using parallelization
-            sol = self.policy(td, env, return_actions=True)
+            sol = self.policy(td, env, problem_mask=True, return_actions=True)
             # Recompose our decomposed state and solution to the original problem sizes
             # To save complexity at the cost of some memory, we use our cached state td
-            td_copy = td.clone()
-            sol_copy = sol["actions"].clone()
+            # td_copy = td.clone()
+            # sol_copy = sol["actions"].clone()
+            # intermediates.append((td_copy, sol_copy))
             sol = self.recompose(td, sol)
-            print(sol["reward"])
+            # print(sol["reward"])
             td = td_base.copy()
         env.check_solution = True
         env.check_solution_validity(td, sol["actions"])
-        return td_copy, sol_copy
+        return sol, intermediates
 
 
     def decompose(
@@ -131,11 +134,11 @@ class BaryCenterDecomp(ImprovementPolicy):
         """
         # Locations tensor that classifies each location by our current solution routes
         # And barycenters tensor that stores the barycenters of each route
-        locs_idx, barycenters = BaryCenterDecomp._assign_routes(td["locs"], sol['actions'])
+        groups_idx, barycenters = BaryCenterDecomp._assign_routes(td["locs"], sol['actions'])
         # Kmeans cluster into subproblems. locs_idx stores the subproblem of each location
-        locs_idx = self.kmeans(barycenters, locs_idx)
+        groups_idx = self.kmeans(barycenters, groups_idx)
         # Reformat our td to count each new subproblem as its own batch element
-        td = Delegate.delegate(td, locs_idx, self.k)
+        td = Delegate.delegate(td, groups_idx, self.k)
 
         return td
     
@@ -174,41 +177,92 @@ class BaryCenterDecomp(ImprovementPolicy):
         return out
 
 
-    def _assign_routes(
-        td_locs: torch.Tensor = None,
-        actions: torch.Tensor = None
-    ):
-        """Helper method to divide up the actions tensor of our policy outputs
-        by routes, defined as starting at node i and ending at node 0 (the depot).
-        To simplify operations, we work on an index tensor of the locations of
-        the state.
+    # def _assign_routes(
+    #     td_locs: torch.Tensor = None,
+    #     actions: torch.Tensor = None
+    # ):
+    #     """ NONVECTORIZED
+    #     Helper method to divide up the actions tensor of our policy outputs
+    #     by routes, defined as starting at node i and ending at node 0 (the depot).
+    #     To simplify operations, we work on an index tensor of the locations of
+    #     the state.
 
-        Args:
-            td_locs: Tensor of location coordinates
-            actions: Tensor of actions taken by the policy
-        Returns:
-            loc_idx: Tensor containing the route index each of our locations is contained in
-            barycenters: Tensor containing the coordinates of the barycenters of each of our tours
-        """
-        # loc_idx, with the same shape as the td_locs, will tell us the tour number
-        # node j has in row i
-        loc_idx = torch.zeros(td_locs.shape[0], td_locs.shape[1], dtype=torch.int16)
-        # barycenters will tell us the barycenter coordinates of tour i at position i
-        # First, find the maximum number of tours per any batch. 
-        # Then, create our tensor shape based on that.
-        num_routes = max([int((Delegate.no_pad(row) == 0).sum()) + 1 for row in actions])
-        barycenters = torch.zeros((td_locs.shape[0], num_routes, 2)) # Stop padding all the routes
-        # Populate loc_idx tensor
-        for i in range(len(loc_idx)):
-            row = Delegate.no_pad(actions[i])
-            depot_idx = (row == 0).nonzero().reshape(-1)
-            routes = torch.tensor_split(row, depot_idx)
-            # After splitting the routes up, we can now assign our route nodes and barycenters
-            for j, route in enumerate(routes):
-                route = route[1:] if route[0] == 0 else route
-                loc_idx[i, route] = j
-                barycenters[i, j] = td_locs[i, route].mean(dim=0)
-        return loc_idx, barycenters
+    #     Args:
+    #         td_locs: Tensor of location coordinates
+    #         actions: Tensor of actions taken by the policy
+    #     Returns:
+    #         groups_idx: Tensor containing the route index each of our locations is contained in
+    #         barycenters: Tensor containing the coordinates of the barycenters of each of our tours
+    #     """
+    #     # groups_idx, with the same shape as the td_locs, will tell us the tour number
+    #     # node j has in row i
+    #     groups_idx = torch.zeros(td_locs.shape[0], td_locs.shape[1], dtype=torch.int16)
+    #     # barycenters will tell us the barycenter coordinates of tour i at position i
+    #     # First, find the maximum number of tours per any batch. 
+    #     # Then, create our tensor shape based on that.
+    #     num_routes = max([int((Delegate.no_pad(row) == 0).sum()) + 1 for row in actions])
+    #     barycenters = torch.zeros((td_locs.shape[0], num_routes, 2))
+    #     # Populate groups_idx tensor
+    #     for i in range(len(groups_idx)):
+    #         row = Delegate.no_pad(actions[i])
+    #         depot_idx = (row == 0).nonzero().reshape(-1)
+    #         routes = torch.tensor_split(row, depot_idx)
+    #         # After splitting the routes up, we can now assign our route nodes and barycenters
+    #         for j, route in enumerate(routes):
+    #             route = route[1:] if route[0] == 0 else route
+    #             groups_idx[i, route] = j
+    #             barycenters[i, j] = td_locs[i, route].mean(dim=0)
+    #     return groups_idx, barycenters
+    
+    def _assign_routes(
+            td_locs: torch.Tensor = None,
+            actions: torch.Tensor = None
+        ):
+            """ VECTORIZED
+            Helper method to divide up the actions tensor of our policy outputs
+            by routes, defined as starting at node i and ending at node 0 (the depot).
+            To simplify operations, we work on an index tensor of the locations of
+            the state.
+
+            Args:
+                td_locs: Tensor of location coordinates
+                actions: Tensor of actions taken by the policy
+            Returns:
+                groups_idx: Tensor containing the route index each of our locations is contained in
+                barycenters: Tensor containing the coordinates of the barycenters of each of our tours
+            """
+            # Construct groups_idx
+            # Assign group ids to the unordered actions tensor, based on a cumulative sum of zero borders
+            # Note group ids start from 1 and end at num of groups. 0 is reserved for padding.
+            grps = torch.cumsum((actions==0), dim=1) + 1
+            # Make temporary tensor, where depot actions are assigned the highest index (useful for ordering in next steps)
+            tmp = actions.clone()
+            mx = actions.max() + 1
+            tmp[actions == 0] = mx
+
+            # indices stores the index of the actions sorted by node number
+            srted, indices = torch.sort(tmp, dim=1)
+            
+            # Assign group numbers to each of the ordered nodes
+            groups_idx = torch.gather(grps, 1, indices)
+            # Mask out the depot nodes at the end of each row
+            groups_idx = groups_idx * (srted != mx)
+
+
+            grps = torch.cat((torch.ones((4, 1), dtype=int), grps), dim=1)
+            grp_names = torch.unique(grps)
+            msks = grps.unsqueeze(2) == grp_names
+            
+            tmp = torch.cat((torch.zeros((4, 1), dtype=int), td_locs[:, :, 0]), dim=1)
+            tmp = torch.gather(tmp, 1, actions)
+            tactions = torch.cat((torch.zeros((4, 1), dtype=int), actions), dim=1)
+            tmp = torch.gather(tmp, 1, tactions)
+            bx = (tmp.unsqueeze(2) * msks)
+            bx = bx.sum(dim=1) / (bx != 0).sum(dim=1)
+
+            return groups_idx, None
+
+
 
 class KmeansPol():
     """Baseline K-means clustering for naive decomposition.

@@ -13,8 +13,8 @@ class SkipConnection(nn.Module):
         super(SkipConnection, self).__init__()
         self.module = module
 
-    def forward(self, x):
-        return x + self.module(x)
+    def forward(self, x, attn_mask=None):
+        return x + self.module(x, attn_mask=attn_mask) # Pass attn_mask by Andrew
 
 
 class AdaptiveSequential(nn.Sequential):
@@ -42,7 +42,7 @@ class Normalization(nn.Module):
         else:
             self.normalizer = "layer"
 
-    def forward(self, x):
+    def forward(self, x, attn_mask=None):
         if isinstance(self.normalizer, nn.BatchNorm1d):
             return self.normalizer(x.view(-1, x.size(-1))).view(*x.size())
         elif isinstance(self.normalizer, nn.InstanceNorm1d):

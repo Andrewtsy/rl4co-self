@@ -98,6 +98,6 @@ class GraphAttentionNetwork(nn.Module):
             x: [batch_size, graph_size, embed_dim] initial embeddings to process
             mask: [batch_size, graph_size, graph_size] mask for the input embeddings. Unused for now.
         """
-        assert mask is None, "Mask not yet supported!"
-        h = self.layers(x)
+        # assert mask is None, "Mask not yet supported!"
+        h = self.layers(x, mask=mask) # Added by Andrew
         return h

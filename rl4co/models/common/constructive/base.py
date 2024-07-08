@@ -167,7 +167,7 @@ class ConstructivePolicy(nn.Module):
         return_sum_log_likelihood: bool = True,
         actions=None,
         max_steps=1_000_000,
-        encoder_mask=None, # Added by Andrew
+        problem_mask=False, # Added by Andrew
         **decoding_kwargs,
     ) -> dict:
         """Forward pass of the policy.
@@ -191,6 +191,9 @@ class ConstructivePolicy(nn.Module):
         Returns:
             out: Dictionary containing the reward, log likelihood, and optionally the actions and entropy
         """
+
+        # Andrew's Edits. Attention Mask
+        encoder_mask = td["action_mask"] if problem_mask else None
 
         # Encoder: get encoder output and initial embeddings from initial state
         hidden, init_embeds = self.encoder(td, encoder_mask) # Encoder mask added by Andrew
