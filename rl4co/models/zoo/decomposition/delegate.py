@@ -53,6 +53,23 @@ class Delegate():
             td_new["locs_idx"][row, 1:len(idx) + 1] = idx + 1
 
         return td_new
+
+    @staticmethod
+    def delegate(
+        td: TensorDict = None,
+        locs_idx: torch.tensor = None,
+        k: int = None
+    ) -> TensorDict:
+        """VECTORIZED
+        Divide the passed in tensordict state by passed in labels
+        Args:
+            td: Tensordict state
+            loc_idx: Tensor labels of the clusters
+            k: Number of clusters
+        Returns:
+            td_new: Transformed tensordict with shape k * td.shape[0]
+        """
+
     
     @staticmethod
     def del_sp(loc_idx, labels):

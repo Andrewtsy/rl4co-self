@@ -248,19 +248,25 @@ class BaryCenterDecomp(ImprovementPolicy):
             # Mask out the depot nodes at the end of each row
             groups_idx = groups_idx * (srted != mx)
 
-
-            grps = torch.cat((torch.ones((4, 1), dtype=int), grps), dim=1)
+            # Construct barycenters
+            # Find all the group ids and make a mask that divides the nodes by group ids
             grp_names = torch.unique(grps)
             msks = grps.unsqueeze(2) == grp_names
             
-            tmp = torch.cat((torch.zeros((4, 1), dtype=int), td_locs[:, :, 0]), dim=1)
-            tmp = torch.gather(tmp, 1, actions)
-            tactions = torch.cat((torch.zeros((4, 1), dtype=int), actions), dim=1)
-            tmp = torch.gather(tmp, 1, tactions)
-            bx = (tmp.unsqueeze(2) * msks)
-            bx = bx.sum(dim=1) / (bx != 0).sum(dim=1)
+            # Find barycenters of x and y coordinates independently
+            xy = []
+            for i in range(2):
+                # Add a depot dummy column to the tensor to correctly offset the indices
+                # Then, gather the x/y coordinate to the associated node position
+                tmp = torch.cat((torch.zeros((4, 1), dtype=int), td_locs[:, :, i]), dim=1)
+                tmp = torch.gather(tmp, 1, actions)
 
-            return groups_idx, None
+                # Reformat our node coordinates by group and calculate their group means
+                b = (tmp.unsqueeze(2) * msks)
+                b = b.sum(dim=1) / (b != 0).sum(dim=1)
+                xy.append(b)
+
+            return groups_idx, torch.stack(xy, dim=-1)
 
 
 
@@ -296,6 +302,7 @@ class KmeansPol():
         Returns:
             locs_idx: Tensor of locations by their subproblems
         """
+        # USE BATCHING TO PARALLELIZE
         subproblems = torch.zeros_like(locs_idx)
         for i in range(locs_idx.shape[0]):
             # For each batch, classify each route into subproblems
