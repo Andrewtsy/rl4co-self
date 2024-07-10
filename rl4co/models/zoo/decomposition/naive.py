@@ -245,8 +245,10 @@ class BaryCenterDecomp(ImprovementPolicy):
             
             # Assign group numbers to each of the ordered nodes
             groups_idx = torch.gather(grps, 1, indices)
-            # Mask out the depot nodes at the end of each row
+            # Mask out the depot nodes at the end of each row and remove padding
             groups_idx = groups_idx * (srted != mx)
+            groups_idx = groups_idx[:, :td_locs.shape[1]]
+
 
             # Construct barycenters
             # Find all the group ids and make a mask that divides the nodes by group ids
@@ -306,7 +308,7 @@ class KmeansPol():
         subproblems = torch.zeros_like(locs_idx)
         for i in range(locs_idx.shape[0]):
             # For each batch, classify each route into subproblems
-            labels = torch.tensor(self.kmeans.fit_predict(Delegate.no_pad(barycenters[i], torch.Tensor([0, 0]))))
+            labels = torch.tensor(self.kmeans.fit_predict(Delegate.no_nan(barycenters[i])))
             for j in range(len(labels)):
                 # For each subproblem, note which nodes belong to them
                 subproblems[i, locs_idx[i] == j] = labels[j]

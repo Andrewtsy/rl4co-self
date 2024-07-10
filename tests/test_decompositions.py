@@ -18,9 +18,9 @@ model_a2c50 = model_a2c50.to(torch.device("cpu"))
 
 td = env.reset(batch_size=[4])
 
-decomp_pol = BaryCenterDecomp(4, policy=model_a2c50.policy, naive_policy=model_a2c50.policy)
+decomp_pol = BaryCenterDecomp(2, policy=model_a2c50.policy, naive_policy=model_a2c50.policy)
 sol = decomp_pol.naive_policy(td, env, return_actions=True)
-kmeans = KmeansPol(4, env)
+kmeans = KmeansPol(2, env)
 
 class TestBaryCenter:
     def test_assign_routes(self):
@@ -37,8 +37,8 @@ class TestBaryCenter:
 class TestDelegate:
     def test_call(self):
         loc_idx, barycenters = BaryCenterDecomp._assign_routes(td["locs"][:, 1:, :], sol['actions'])
-        delegate = Delegate()
-        td_new = delegate(td, loc_idx, 9)
+        loc_idx = kmeans(barycenters, loc_idx)
+        td_new = Delegate.delegate(td, loc_idx, 2)
         pass
 
     def test_del_sp(self):
