@@ -47,7 +47,7 @@ class Delegate():
         idx = res[:, :maxsps]
 
         # Locations repeated to be same shape as subproblems tensor
-        rep = torch.repeat_interleave(locs, 2, dim=0)
+        rep = torch.repeat_interleave(locs, k * bs, dim=0)
         # Independently construct x and y coordinate location tensors
         xy = []
         for i in range(2):

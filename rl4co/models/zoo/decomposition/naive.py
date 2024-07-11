@@ -87,11 +87,12 @@ class BaryCenterDecomp(ImprovementPolicy):
         # Refrain from checking solution validity until the end of the evaluation
         env.check_solution = False
         sol = self.naive_policy(td, env, return_actions=True)
-        intermediates = []
-        intermediates.append(sol["actions"].clone())
+        # intermediates = []
+        # intermediates.append(sol["actions"].clone())
         # print(sol["reward"])
         # Iterative loop to improve our solution
         for _ in range(its):
+            print(f"iteration {_}")
             # Decompose our state td and sol tensor into its k subproblems
             # Returned td is reset to prepare for policy
             td = self.decompose(td, env, sol)
@@ -109,7 +110,7 @@ class BaryCenterDecomp(ImprovementPolicy):
             td = td_base.copy()
         env.check_solution = True
         env.check_solution_validity(td, sol["actions"])
-        return sol, intermediates
+        return sol
 
 
     def decompose(
@@ -161,12 +162,12 @@ class BaryCenterDecomp(ImprovementPolicy):
         """      
         # Store constants
         bs = sol["actions"].shape[0] // self.k
-        actions = torch.cat((sol["actions"], torch.zeros((8, 1), dtype=torch.int32)), dim=1)
+        actions = torch.cat((sol["actions"], torch.zeros((sol["actions"].shape[0], 1), dtype=torch.int32)), dim=1)
         idx = td["locs_idx"]
 
         # Recomposed tensor. Importantly, we have not removed padded zeros from them middle of rows yet.
         # The rest of the code is devoted to this
-        combined = torch.gather(torch.cat((torch.zeros((8, 1), dtype=torch.int32), idx), dim=1), 1, actions)
+        combined = torch.gather(torch.cat((torch.zeros((sol["actions"].shape[0], 1), dtype=torch.int32), idx), dim=1), 1, actions)
         combined = combined.reshape(bs, -1).to(torch.int32)
 
         # Find the mask of all the nodes in the original subproblems we care about
@@ -181,7 +182,7 @@ class BaryCenterDecomp(ImprovementPolicy):
         max_length = torch.max(row_lengths)
 
         # Make the mask_idx of the places we want to fill in in our resulting tensor
-        res = torch.zeros((bs, max_length), dtype=torch.int32)
+        res = torch.zeros((bs, max_length), dtype=torch.int64)
         idx = torch.arange(max_length).expand(bs, max_length)
         mask_idx = (idx < row_lengths.unsqueeze(1))
         del idx
@@ -192,7 +193,7 @@ class BaryCenterDecomp(ImprovementPolicy):
         # Wrap up in output dictionary
         out = {}
         out["actions"] = res
-        # Sum the rewards and dummy zero out the log likelihoods
+        # Sum the rewards and the log likelihoods
         out["reward"] = sol["reward"].view((bs, self.k)).sum(dim=1)
         out["log_likelihood"] = sol["log_likelihood"].view((bs, self.k)).sum(dim=1)
 
@@ -244,8 +245,8 @@ class BaryCenterDecomp(ImprovementPolicy):
             for i in range(2):
                 # Add a depot dummy column to the tensor to correctly offset the indices
                 # Then, gather the x/y coordinate to the associated node position
-                tmp = torch.cat((torch.zeros((4, 1), dtype=int), td_locs[:, :, i]), dim=1)
-                tmp = torch.gather(tmp, 1, actions)
+                tmp = torch.cat((torch.zeros((td_locs.shape[0], 1)), td_locs[:, :, i]), dim=1)
+                tmp = torch.gather(tmp, 1, actions.to(torch.int64))
 
                 # Reformat our node coordinates by group and calculate their group means
                 b = (tmp.unsqueeze(2) * msks)
