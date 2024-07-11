@@ -231,7 +231,7 @@ class BaryCenterDecomp(ImprovementPolicy):
             groups_idx = torch.gather(grps, 1, indices)
             # Mask out the depot nodes at the end of each row and remove padding
             groups_idx = groups_idx * (srted != mx)
-            groups_idx = groups_idx[:, :td_locs.shape[1]]
+            groups_idx = groups_idx[:, :td_locs.shape[1] - 1]
 
 
             # Construct barycenters

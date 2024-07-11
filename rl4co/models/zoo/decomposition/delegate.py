@@ -36,14 +36,14 @@ class Delegate():
         # Indices of each of the nodes in their original subproblems
         # Scatter them onto a map from subproblems to their original problem indices
         map_ps = torch.arange(0, k * bs, step=k).unsqueeze(1) + idx
-        problem_indices = torch.arange(sps).expand(bs, -1)
+        problem_indices = torch.arange(sps).expand(bs, -1) + 1
         res = res.scatter(0, map_ps, problem_indices)
 
         # Remove zero pads
         res[res == 0] = mx
         res, _ = torch.sort(res, dim=1)
         res = res * (res != mx)
-        maxsps = torch.max(torch.nonzero(res, as_tuple=True)[-1])
+        maxsps = torch.max(torch.nonzero(res, as_tuple=True)[-1]) + 1
         idx = res[:, :maxsps]
 
         # Locations repeated to be same shape as subproblems tensor
