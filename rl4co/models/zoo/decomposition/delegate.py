@@ -11,49 +11,6 @@ class Delegate():
     ):
         pass
 
-    # @staticmethod
-    # def delegate(
-    #     td: TensorDict = None,
-    #     locs_idx: torch.tensor = None,
-    #     k: int = None
-    # ) -> TensorDict:
-    #     """Divide the passed in tensordict state by passed in labels
-    #     Args:
-    #         td: Tensordict state
-    #         loc_idx: Tensor labels of the clusters
-    #         k: Number of clusters
-    #     Returns:
-    #         td_new: Transformed tensordict with shape k * td.shape[0]
-    #     """
-    #     bs = td["locs"].shape[0] * k
-    #     # Find greatest subproblem size to standardize new td size
-    #     sps = Delegate._find_gs(locs_idx[:, 1:])
-
-    #     # Before reset, state td must have these key variable pairs
-    #     td_new = TensorDict({"locs": torch.zeros(*(bs, sps, 2)),
-    #                          "demand": torch.zeros(*(bs, sps)),
-    #                          "problem_mask": torch.zeros(*(bs, sps), dtype=torch.bool),
-    #                          "depot": td["depot"].repeat(1, k).reshape(bs, -1),
-    #                          "capacity": td["capacity"].repeat(1, k).reshape(bs, -1),
-    #                          "locs_idx": torch.zeros(*(bs, (sps + 1)))},
-    #                          bs=bs)
-
-    #     # Iterate through new batches, calculating the old batch i and cluster l of each
-    #     for row in range(len(td_new["locs"])):
-    #         i, l = row // k, row % k
-    #         # Set td_new location nodes to their respective clusters
-    #         idx = torch.where(locs_idx[i, 1:] == l)[0]
-    #         td_new["locs"][row, :len(idx), :] = td["locs"][i, 1:][idx, :]
-
-    #         # Assign new demand and problem masks based on the new clusters
-    #         td_new["demand"][row, :len(idx)] = td["demand"][i, idx]
-    #         td_new["problem_mask"][row, :len(idx)] = torch.ones(len(idx), dtype=torch.bool)
-
-    #         # Mappings from new locations to old locations for recomposition
-    #         td_new["locs_idx"][row, 1:len(idx) + 1] = idx + 1
-
-    #     return td_new
-
     @staticmethod
     def delegate(
         td: TensorDict = None,
@@ -102,7 +59,7 @@ class Delegate():
 
         # Before reset, state td must have these key variable pairs
         td = TensorDict({"locs": locs,
-                        "demand": torch.zeros(*(bs * k, sps)),
+                        "demand": torch.zeros(*(bs * k, maxsps)),
                         "problem_mask": problem_mask,
                         "depot": torch.repeat_interleave(td["depot"], k, 0),
                         "capacity": torch.repeat_interleave(td["capacity"], k, 0),

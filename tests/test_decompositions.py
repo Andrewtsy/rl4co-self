@@ -20,30 +20,34 @@ td = env.reset(batch_size=[4])
 
 decomp_pol = BaryCenterDecomp(2, policy=model_a2c50.policy, naive_policy=model_a2c50.policy)
 sol = decomp_pol.naive_policy(td, env, return_actions=True)
-kmeans = KmeansPol(2, env)
+
+
+td = decomp_pol.decompose(td, env, sol)
+td = env.reset(td)
+td["action_mask"] = torch.concat((torch.ones((td.batch_size[0], 1), dtype=bool), td["problem_mask"]), dim=1)
+env.check_solution = False
+sol = decomp_pol.policy(td, env, problem_mask=True, return_actions=True)
 
 class TestBaryCenter:
     def test_assign_routes(self):
         groups_idx, barycenters = BaryCenterDecomp._assign_routes(td["locs"][:, 1:, :], sol['actions'])
-        
-        # groups_idx_gold = torch.Tensor([[1, 3, 2, 2, 1, 0, 1, 0, 2, 3, 1, 0, 3, 2, 0, 3, 1, 1, 0, 0],
-        #                              [0, 2, 1, 0, 0, 2, 3, 2, 1, 2, 1, 3, 0, 2, 1, 3, 0, 3, 3, 1]])
-        # assert torch.equal(groups_idx[:2], groups_idx_gold)
+        pass
 
-        # barycenters_gold = torch.Tensor([[[0.6191, 0.6274], [0.5764, 0.3365], [0.1292, 0.2231], [0.1999, 0.7730]],
-        #                                  [[0.5701, 0.7364], [0.1841, 0.8193], [0.4152, 0.1926], [0.2002, 0.4218]]])
-        # assert torch.equal(barycenters_gold[:2], barycenters[:2])
+    def test_recompose(self):
+        global td, sol
+        sol = decomp_pol.recompose(td, sol)
+        pass
 
 class TestDelegate:
     def test_call(self):
         loc_idx, barycenters = BaryCenterDecomp._assign_routes(td["locs"][:, 1:, :], sol['actions'])
-        loc_idx = kmeans(barycenters, loc_idx)
+        loc_idx = BaryCenterDecomp.kmeans(barycenters, loc_idx)
         td_new = Delegate.delegate(td, loc_idx, 2)
         pass
 
     def test_del_sp(self):
         loc_idx, barycenters = BaryCenterDecomp._assign_routes(td["locs"][:, 1:, :], sol['actions'])
-        labels = kmeans(td, barycenters)
+        labels = BaryCenterDecomp.kmeans(td, barycenters)
         loc_idx = Delegate.del_sp(loc_idx, labels)
         pass
 

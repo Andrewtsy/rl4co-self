@@ -141,12 +141,13 @@ class BaryCenterDecomp(ImprovementPolicy):
         td = Delegate.delegate(td, groups_idx, self.k)
 
         return td
-    
+
     def recompose(self,
                   td: TensorDict = None,
                   sol: dict = None,
     ) -> TensorDict:
-        """Recomposition pass of the decomposition policy.
+        """ VECTORIZED
+        Recomposition pass of the decomposition policy.
         Takes as input the decomposed tensordict states and solutions, and recomposes
         them into the original problem size with solutions.
 
@@ -156,64 +157,47 @@ class BaryCenterDecomp(ImprovementPolicy):
             sol: Dictionary of current best solution
         Returns:
             out: Dictionary containing reward, log likelihood, 
-            and importantly, tensordict state decomposed into subproblems.
-        """        
+            and importantly, recomposed actions
+        """      
+        # Store constants
+        bs = sol["actions"].shape[0] // self.k
+        actions = torch.cat((sol["actions"], torch.zeros((8, 1), dtype=torch.int32)), dim=1)
+        idx = td["locs_idx"]
+
+        # Recomposed tensor. Importantly, we have not removed padded zeros from them middle of rows yet.
+        # The rest of the code is devoted to this
+        combined = torch.gather(torch.cat((torch.zeros((8, 1), dtype=torch.int32), idx), dim=1), 1, actions)
+        combined = combined.reshape(bs, -1).to(torch.int32)
+
+        # Find the mask of all the nodes in the original subproblems we care about
+        pad_indices = torch.argmax(torch.cumsum(actions, dim=1), dim=1)
+        rows = torch.arange(actions.shape[1]).unsqueeze(0).expand(actions.shape[0], -1)
+        mask = rows <= pad_indices.unsqueeze(1) + 1
+        mask = mask.reshape(bs, -1)
+        del rows
+
+        # Find the row lengths of each subproblem and the row length needed for the final tensor
+        row_lengths = mask.sum(dim=1)
+        max_length = torch.max(row_lengths)
+
+        # Make the mask_idx of the places we want to fill in in our resulting tensor
+        res = torch.zeros((bs, max_length), dtype=torch.int32)
+        idx = torch.arange(max_length).expand(bs, max_length)
+        mask_idx = (idx < row_lengths.unsqueeze(1))
+        del idx
+
+        # Fill in our resulting tensor!
+        res[mask_idx] = combined[mask]
+
+        # Wrap up in output dictionary
         out = {}
-        bs = sol["actions"].shape[0] // self.k # Batch size
-        # Tensor of the actions taken in order, sewn together from the subproblem sols
-        out["actions"] = torch.zeros(size=(bs, self.k * (sol["actions"].shape[1] + 1)), dtype=torch.int64)
-        for i in range(bs):
-            row = torch.tensor([])
-            # Iteratively add the subproblem solutions together
-            for j in range(min(self.k, sol["actions"].shape[0] - (i * self.k))):
-                routes = td["locs_idx"][i * self.k + j][Delegate.no_pad(sol["actions"][i * self.k + j])]
-                row = torch.cat((row, routes, torch.tensor([0,])))
-            out["actions"][i, :len(row)] = row
-        sps = max(len(Delegate.no_pad(out["actions"][b])) for b in range(len(out["actions"])))
-        out["actions"] = out["actions"][:, :sps]
+        out["actions"] = res
         # Sum the rewards and dummy zero out the log likelihoods
         out["reward"] = sol["reward"].view((bs, self.k)).sum(dim=1)
-        out["log_likelihood"] = torch.zeros((bs,))
+        out["log_likelihood"] = sol["log_likelihood"].view((bs, self.k)).sum(dim=1)
+
         return out
-
-
-    # def _assign_routes(
-    #     td_locs: torch.Tensor = None,
-    #     actions: torch.Tensor = None
-    # ):
-    #     """ NONVECTORIZED
-    #     Helper method to divide up the actions tensor of our policy outputs
-    #     by routes, defined as starting at node i and ending at node 0 (the depot).
-    #     To simplify operations, we work on an index tensor of the locations of
-    #     the state.
-
-    #     Args:
-    #         td_locs: Tensor of location coordinates
-    #         actions: Tensor of actions taken by the policy
-    #     Returns:
-    #         groups_idx: Tensor containing the route index each of our locations is contained in
-    #         barycenters: Tensor containing the coordinates of the barycenters of each of our tours
-    #     """
-    #     # groups_idx, with the same shape as the td_locs, will tell us the tour number
-    #     # node j has in row i
-    #     groups_idx = torch.zeros(td_locs.shape[0], td_locs.shape[1], dtype=torch.int16)
-    #     # barycenters will tell us the barycenter coordinates of tour i at position i
-    #     # First, find the maximum number of tours per any batch. 
-    #     # Then, create our tensor shape based on that.
-    #     num_routes = max([int((Delegate.no_pad(row) == 0).sum()) + 1 for row in actions])
-    #     barycenters = torch.zeros((td_locs.shape[0], num_routes, 2))
-    #     # Populate groups_idx tensor
-    #     for i in range(len(groups_idx)):
-    #         row = Delegate.no_pad(actions[i])
-    #         depot_idx = (row == 0).nonzero().reshape(-1)
-    #         routes = torch.tensor_split(row, depot_idx)
-    #         # After splitting the routes up, we can now assign our route nodes and barycenters
-    #         for j, route in enumerate(routes):
-    #             route = route[1:] if route[0] == 0 else route
-    #             groups_idx[i, route] = j
-    #             barycenters[i, j] = td_locs[i, route].mean(dim=0)
-    #     return groups_idx, barycenters
-    
+   
     def _assign_routes(
             td_locs: torch.Tensor = None,
             actions: torch.Tensor = None
