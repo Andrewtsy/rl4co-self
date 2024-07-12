@@ -36,7 +36,7 @@ class Delegate():
         # Indices of each of the nodes in their original subproblems
         # Scatter them onto a map from subproblems to their original problem indices
         map_ps = torch.arange(0, k * bs, step=k).unsqueeze(1) + idx
-        problem_indices = torch.arange(sps).expand(bs, -1) + 1
+        problem_indices = torch.arange(1, sps + 1).expand(bs, -1)
         res = res.scatter(0, map_ps, problem_indices)
 
         # Remove zero pads
@@ -47,19 +47,25 @@ class Delegate():
         idx = res[:, :maxsps]
 
         # Locations repeated to be same shape as subproblems tensor
-        rep = torch.repeat_interleave(locs, k * bs, dim=0)
+        rep = torch.repeat_interleave(locs, k, dim=0)
         # Independently construct x and y coordinate location tensors
         xy = []
         for i in range(2):
             # Gather coordinates by idx
             xy.append(torch.gather(rep[:, :, i], 1, idx))
+        
         locs = torch.stack(xy, dim=-1)
 
+        # Problem mask is just where the locations are not pads
         problem_mask = idx != 0
+
+        # Gather location demands
+        rep = torch.cat((torch.zeros(bs * k, 1), torch.repeat_interleave(td["demand"], k, dim=0)), dim=1)
+        demand = torch.gather(rep, 1, idx)
 
         # Before reset, state td must have these key variable pairs
         td = TensorDict({"locs": locs,
-                        "demand": torch.zeros(*(bs * k, maxsps)),
+                        "demand": demand,
                         "problem_mask": problem_mask,
                         "depot": torch.repeat_interleave(td["depot"], k, 0),
                         "capacity": torch.repeat_interleave(td["capacity"], k, 0),
@@ -68,6 +74,50 @@ class Delegate():
 
         return td
     
+    @staticmethod
+    def delegate_old(
+        td: TensorDict = None,
+        locs_idx: torch.tensor = None,
+        k: int = None
+    ) -> TensorDict:
+        """Divide the passed in tensordict state by passed in labels
+        Args:
+            td: Tensordict state
+            loc_idx: Tensor labels of the clusters
+            k: Number of clusters
+        Returns:
+            td_new: Transformed tensordict with shape k * td.shape[0]
+        """
+        batch_size = td["locs"].shape[0] * k
+        # Find greatest subproblem size to standardize new td size
+        subproblem_size = Delegate._find_gs(locs_idx[:, 1:])
+
+        # Before reset, state td must have these key variable pairs
+        td_new = TensorDict({"locs": torch.zeros(*(batch_size, subproblem_size, 2)),
+                             "demand": torch.zeros(*(batch_size, subproblem_size)),
+                             "problem_mask": torch.zeros(*(batch_size, subproblem_size), dtype=torch.bool),
+                             "depot": td["depot"].repeat(1, k).reshape(batch_size, -1),
+                             "capacity": td["capacity"].repeat(1, k).reshape(batch_size, -1),
+                             "locs_idx": torch.zeros(*(batch_size, (subproblem_size + 1)))},
+                             batch_size=batch_size)
+
+        # Iterate through new batches, calculating the old batch i and cluster l of each
+        for row in range(len(td_new["locs"])):
+            i, l = row // k, row % k
+            # Set td_new location nodes to their respective clusters
+            idx = torch.where(locs_idx[i, 1:] == l)[0]
+            td_new["locs"][row, :len(idx), :] = td["locs"][i, 1:][idx, :]
+
+            # Assign new demand and problem masks based on the new clusters
+            td_new["demand"][row, :len(idx)] = td["demand"][i, idx]
+            td_new["problem_mask"][row, :len(idx)] = torch.ones(len(idx), dtype=torch.bool)
+
+            # Mappings from new locations to old locations for recomposition
+            td_new["locs_idx"][row, 1:len(idx) + 1] = idx + 1
+
+        return td_new
+
+
     @staticmethod
     def del_sp(loc_idx, labels):
         locsp_idx = torch.zeros_like(loc_idx)

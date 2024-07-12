@@ -87,8 +87,8 @@ class BaryCenterDecomp(ImprovementPolicy):
         # Refrain from checking solution validity until the end of the evaluation
         env.check_solution = False
         sol = self.naive_policy(td, env, return_actions=True)
-        # intermediates = []
-        # intermediates.append(sol["actions"].clone())
+        intermediates = []
+        intermediates.append(sol["actions"].clone())
         # print(sol["reward"])
         # Iterative loop to improve our solution
         for _ in range(its):
@@ -102,15 +102,15 @@ class BaryCenterDecomp(ImprovementPolicy):
             sol = self.policy(td, env, problem_mask=True, return_actions=True)
             # Recompose our decomposed state and solution to the original problem sizes
             # To save complexity at the cost of some memory, we use our cached state td
-            # td_copy = td.clone()
-            # sol_copy = sol["actions"].clone()
-            # intermediates.append((td_copy, sol_copy))
+            td_copy = td.clone()
+            sol_copy = sol["actions"].clone()
+            intermediates.append((td_copy, sol_copy))
             sol = self.recompose(td, sol)
             # print(sol["reward"])
             td = td_base.copy()
-        env.check_solution = True
-        env.check_solution_validity(td, sol["actions"])
-        return sol
+        # env.check_solution = True
+        # env.check_solution_validity(td, sol["actions"])
+        return sol, intermediates
 
 
     def decompose(
@@ -162,13 +162,13 @@ class BaryCenterDecomp(ImprovementPolicy):
         """      
         # Store constants
         bs = sol["actions"].shape[0] // self.k
-        actions = torch.cat((sol["actions"], torch.zeros((sol["actions"].shape[0], 1), dtype=torch.int32)), dim=1)
+        actions = torch.cat((sol["actions"], torch.zeros((sol["actions"].shape[0], 1), dtype=torch.int64)), dim=1)
         idx = td["locs_idx"]
 
         # Recomposed tensor. Importantly, we have not removed padded zeros from them middle of rows yet.
         # The rest of the code is devoted to this
-        combined = torch.gather(torch.cat((torch.zeros((sol["actions"].shape[0], 1), dtype=torch.int32), idx), dim=1), 1, actions)
-        combined = combined.reshape(bs, -1).to(torch.int32)
+        combined = torch.gather(torch.cat((torch.zeros((sol["actions"].shape[0], 1), dtype=torch.int64), idx), dim=1), 1, actions)
+        combined = combined.reshape(bs, -1).to(torch.int64)
 
         # Find the mask of all the nodes in the original subproblems we care about
         pad_indices = torch.argmax(torch.cumsum(actions, dim=1), dim=1)
@@ -238,6 +238,7 @@ class BaryCenterDecomp(ImprovementPolicy):
             # Construct barycenters
             # Find all the group ids and make a mask that divides the nodes by group ids
             grp_names = torch.unique(grps)
+            grps = grps * (actions != 0)
             msks = grps.unsqueeze(2) == grp_names
             
             # Find barycenters of x and y coordinates independently
@@ -245,8 +246,8 @@ class BaryCenterDecomp(ImprovementPolicy):
             for i in range(2):
                 # Add a depot dummy column to the tensor to correctly offset the indices
                 # Then, gather the x/y coordinate to the associated node position
-                tmp = torch.cat((torch.zeros((td_locs.shape[0], 1)), td_locs[:, :, i]), dim=1)
-                tmp = torch.gather(tmp, 1, actions.to(torch.int64))
+                # tmp = torch.cat((torch.zeros((td_locs.shape[0], 1)), td_locs[:, :, i]), dim=1)
+                tmp = torch.gather(td_locs[:, :, i], 1, actions.to(torch.int64))
 
                 # Reformat our node coordinates by group and calculate their group means
                 b = (tmp.unsqueeze(2) * msks)
@@ -254,6 +255,43 @@ class BaryCenterDecomp(ImprovementPolicy):
                 xy.append(b)
 
             return groups_idx, torch.stack(xy, dim=-1)
+
+    def _assign_routes_old(
+        td_locs: torch.Tensor = None,
+        actions: torch.Tensor = None
+    ):
+        """Helper method to divide up the actions tensor of our policy outputs
+        by routes, defined as starting at node i and ending at node 0 (the depot).
+        To simplify operations, we work on an index tensor of the locations of
+        the state.
+
+        Args:
+            td_locs: Tensor of location coordinates
+            actions: Tensor of actions taken by the policy
+        Returns:
+            loc_idx: Tensor containing the route index each of our locations is contained in
+            barycenters: Tensor containing the coordinates of the barycenters of each of our tours
+        """
+        # loc_idx, with the same shape as the td_locs, will tell us the tour number
+        # node j has in row i
+        loc_idx = torch.zeros(td_locs.shape[0], td_locs.shape[1], dtype=torch.int16)
+        # barycenters will tell us the barycenter coordinates of tour i at position i
+        # First, find the maximum number of tours per any batch. 
+        # Then, create our tensor shape based on that.
+        num_routes = max([int((Delegate.no_pad(row) == 0).sum()) + 1 for row in actions])
+        barycenters = torch.zeros((td_locs.shape[0], num_routes, 2)) # Stop padding all the routes
+        # Populate loc_idx tensor
+        for i in range(len(loc_idx)):
+            row = Delegate.no_pad(actions[i])
+            depot_idx = (row == 0).nonzero().reshape(-1)
+            routes = torch.tensor_split(row, depot_idx)
+            # After splitting the routes up, we can now assign our route nodes and barycenters
+            for j, route in enumerate(routes):
+                route = route[1:] if route[0] == 0 else route
+                loc_idx[i, route] = j
+                barycenters[i, j] = td_locs[i, route].mean(dim=0)
+        return loc_idx, barycenters
+
 
 
 
@@ -290,7 +328,13 @@ class KmeansPol():
             locs_idx: Tensor of locations by their subproblems
         """
         # USE BATCHING TO PARALLELIZE
-        subproblems = torch.zeros_like(locs_idx)
+        subproblems = torch.zeros_like(locs_idx)    
+
+        # Impute padded nan values
+        mask = torch.isnan(barycenters)
+        means = torch.nanmean(barycenters, dim=1)
+        barycenters = torch.where(mask, means.unsqueeze(1).expand_as(barycenters), barycenters)
+
         for i in range(locs_idx.shape[0]):
             # For each batch, classify each route into subproblems
             labels = torch.tensor(self.kmeans.fit_predict(Delegate.no_nan(barycenters[i])))
