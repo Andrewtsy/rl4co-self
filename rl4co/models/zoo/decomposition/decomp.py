@@ -1,19 +1,13 @@
 from typing import Any, Union
-from sklearn.cluster import KMeans
 import torch
-from torch import nn
 from tensordict.tensordict import TensorDict
 
 from rl4co.envs import RL4COEnvBase
-from rl4co.models.zoo.am import AttentionModel, AttentionModelPolicy
+from rl4co.models.zoo.am import AttentionModelPolicy
 from rl4co.models.common import ImprovementPolicy, ConstructivePolicy
-from rl4co.models.zoo.decomposition.delegate import Delegate
 
-class BaryCenterDecomp(ImprovementPolicy):
-    """Baseline Barycenter decomposition policy using Kmeans clustering.
-    First, calculate the barycenters of the current solution's routes. 
-    Then, use Kmeans clustering to cluster the nearest routes into k CVRP subproblems.
-    
+class DecompPolicy(ImprovementPolicy):
+    """General policy class    
     Args:
         num_subproblems: Number of clusters/subproblems
         env_name: Problem environment,
@@ -56,9 +50,12 @@ class BaryCenterDecomp(ImprovementPolicy):
 
         self.k = num_subproblems
         self.env_name = env_name
-        self.kmeans = KmeansPol(self.k)
         self.policy = policy
         self.naive_policy = naive_policy
+
+    def partition(self):
+        """To be implemented in subclass"""
+        raise NotImplementedError
 
     def forward(
         self,
@@ -71,7 +68,6 @@ class BaryCenterDecomp(ImprovementPolicy):
         return_init_embeds: bool = False,
     ) -> dict:
         """Forward pass of the decomposition policy.
-        Full run of decomposition.
 
         Args:
             td: Tensordict state
@@ -87,8 +83,8 @@ class BaryCenterDecomp(ImprovementPolicy):
         # Refrain from checking solution validity until the end of the evaluation
         env.check_solution = False
         sol = self.naive_policy(td, env, return_actions=True)
-        intermediates = []
-        intermediates.append(sol["actions"].clone())
+        # intermediates = []
+        # intermediates.append(sol["actions"].clone())
         # print(sol["reward"])
         # Iterative loop to improve our solution
         for _ in range(its):
@@ -102,15 +98,15 @@ class BaryCenterDecomp(ImprovementPolicy):
             sol = self.policy(td, env, problem_mask=True, return_actions=True)
             # Recompose our decomposed state and solution to the original problem sizes
             # To save complexity at the cost of some memory, we use our cached state td
-            td_copy = td.clone()
-            sol_copy = sol["actions"].clone()
-            intermediates.append((td_copy, sol_copy))
+            # td_copy = td.clone()
+            # sol_copy = sol["actions"].clone()
+            # intermediates.append((td_copy, sol_copy))
             sol = self.recompose(td, sol)
             # print(sol["reward"])
             td = td_base.copy()
-        # env.check_solution = True
-        # env.check_solution_validity(td, sol["actions"])
-        return sol, intermediates
+        env.check_solution = True
+        env.check_solution_validity(td, sol["actions"])
+        return sol
 
 
     def decompose(
@@ -135,11 +131,11 @@ class BaryCenterDecomp(ImprovementPolicy):
         """
         # Locations tensor that classifies each location by our current solution routes
         # And barycenters tensor that stores the barycenters of each route
-        groups_idx, barycenters = BaryCenterDecomp._assign_routes(td["locs"], sol['actions'])
+        groups_idx, barycenters = DecompPolicy._assign_routes(td["locs"], sol['actions'])
         # Kmeans cluster into subproblems. locs_idx stores the subproblem of each location
-        groups_idx = self.kmeans(barycenters, groups_idx)
+        groups_idx = self.partition(barycenters, groups_idx)
         # Reformat our td to count each new subproblem as its own batch element
-        td = Delegate.delegate(td, groups_idx, self.k)
+        td = DecompPolicy.delegate(td, groups_idx, self.k)
 
         return td
 
@@ -199,6 +195,7 @@ class BaryCenterDecomp(ImprovementPolicy):
 
         return out
    
+    @staticmethod
     def _assign_routes(
             td_locs: torch.Tensor = None,
             actions: torch.Tensor = None
@@ -255,3 +252,66 @@ class BaryCenterDecomp(ImprovementPolicy):
                 xy.append(b)
 
             return groups_idx, torch.stack(xy, dim=-1)
+    
+    @staticmethod
+    def delegate(
+        td: TensorDict = None,
+        idx: torch.tensor = None,
+        k: int = None
+    ) -> TensorDict:
+        """VECTORIZED
+        Divide the passed in tensordict state by passed in labels
+        Args:
+            td: Tensordict state
+            idx: Tensor map from problem nodes to their clusters
+            k: Number of clusters
+        Returns:
+            td_new: Transformed tensordict with shape k * td.shape[0]
+        """
+        # Remove depot node
+        locs = td["locs"]
+        # Set batch and subproblem sizes, as well as maximum node number for zero padding (used later)
+        bs, sps, mx = idx.shape[0], idx.shape[1], idx.shape[1] + 1
+        # Subproblem divided *map* will map nodes to their original problem indices
+        res = torch.zeros((k * bs, sps), dtype=torch.int64)
+        # Take map of nodes in the original problems to their subproblem rows,
+        # Indices of each of the nodes in their original subproblems
+        # Scatter them onto a map from subproblems to their original problem indices
+        map_ps = torch.arange(0, k * bs, step=k).unsqueeze(1) + idx
+        problem_indices = torch.arange(1, sps + 1).expand(bs, -1)
+        res = res.scatter(0, map_ps, problem_indices)
+
+        # Remove zero pads
+        res[res == 0] = mx
+        res, _ = torch.sort(res, dim=1)
+        res = res * (res != mx)
+        maxsps = torch.max(torch.nonzero(res, as_tuple=True)[-1]) + 1
+        idx = res[:, :maxsps]
+
+        # Locations repeated to be same shape as subproblems tensor
+        rep = torch.repeat_interleave(locs, k, dim=0)
+        # Independently construct x and y coordinate location tensors
+        xy = []
+        for i in range(2):
+            # Gather coordinates by idx
+            xy.append(torch.gather(rep[:, :, i], 1, idx))
+        
+        locs = torch.stack(xy, dim=-1)
+
+        # Problem mask is just where the locations are not pads
+        problem_mask = idx != 0
+
+        # Gather location demands
+        rep = torch.cat((torch.zeros(bs * k, 1), torch.repeat_interleave(td["demand"], k, dim=0)), dim=1)
+        demand = torch.gather(rep, 1, idx)
+
+        # Before reset, state td must have these key variable pairs
+        td = TensorDict({"locs": locs,
+                        "demand": demand,
+                        "problem_mask": problem_mask,
+                        "depot": torch.repeat_interleave(td["depot"], k, 0),
+                        "capacity": torch.repeat_interleave(td["capacity"], k, 0),
+                        "locs_idx": idx},
+                        batch_size=bs * k)
+
+        return td
