@@ -91,17 +91,34 @@ class DecompPolicy(ImprovementPolicy):
             print(f"iteration {_}")
             # Decompose our state td and sol tensor into its k subproblems
             # Returned td is reset to prepare for policy
-            td = self.decompose(td, env, sol)
+            td, actions = self.decompose(td, env, sol)
             td = env.reset(td)
             td["action_mask"] = torch.concat((torch.ones((td.batch_size[0], 1), dtype=bool), td["problem_mask"]), dim=1)
             # Apply our constructive policy to each subproblem using parallelization
-            sol = self.policy(td, env, problem_mask=True, return_actions=True)
+            nsol = self.policy(td, env, problem_mask=True, return_actions=True)
+
+            # Select best solutions
+            res = TensorDict({
+                "actions": torch.zeros((td.batch_size[0], max(actions.shape[1], nsol["actions"].shape[1])), dtype=torch.int64),
+                "reward": torch.zeros((td.batch_size[0]), dtype=torch.float32)},
+                batch_size=td.batch_size[0]
+            )
+            sol = TensorDict({"actions": actions, "reward": env._get_reward(td, actions)},
+                             batch_size=td.batch_size[0])
+            mask = nsol["reward"] > sol["reward"]
+
+            res["actions"][mask, :nsol["actions"].shape[1]] = nsol["actions"][mask, :]
+            res["actions"][~mask, :sol["actions"].shape[1]] = sol["actions"][~mask, :]
+
+            res["reward"][mask] = nsol["reward"][mask]
+            res["reward"][~mask] = sol["reward"][~mask]            
+
             # Recompose our decomposed state and solution to the original problem sizes
             # To save complexity at the cost of some memory, we use our cached state td
             # td_copy = td.clone()
             # sol_copy = sol["actions"].clone()
             # intermediates.append((td_copy, sol_copy))
-            sol = self.recompose(td, sol)
+            sol = self.recompose(td, res)
             # print(sol["reward"])
             td = td_base.copy()
         env.check_solution = True
@@ -135,9 +152,9 @@ class DecompPolicy(ImprovementPolicy):
         # Kmeans cluster into subproblems. locs_idx stores the subproblem of each location
         groups_idx = self.partition(barycenters, groups_idx)
         # Reformat our td to count each new subproblem as its own batch element
-        td = DecompPolicy.delegate(td, groups_idx, self.k)
+        td, sol = DecompPolicy.delegate(td, groups_idx, self.k, sol)
 
-        return td
+        return td, sol
 
     def recompose(self,
                   td: TensorDict = None,
@@ -191,7 +208,7 @@ class DecompPolicy(ImprovementPolicy):
         out["actions"] = res
         # Sum the rewards and the log likelihoods
         out["reward"] = sol["reward"].view((bs, self.k)).sum(dim=1)
-        out["log_likelihood"] = sol["log_likelihood"].view((bs, self.k)).sum(dim=1)
+        # out["log_likelihood"] = sol["log_likelihood"].view((bs, self.k)).sum(dim=1)
 
         return out
    
@@ -257,7 +274,9 @@ class DecompPolicy(ImprovementPolicy):
     def delegate(
         td: TensorDict = None,
         idx: torch.tensor = None,
-        k: int = None
+        k: int = None,
+        sol: torch.tensor = None,
+        env: RL4COEnvBase = None
     ) -> TensorDict:
         """VECTORIZED
         Divide the passed in tensordict state by passed in labels
@@ -286,7 +305,7 @@ class DecompPolicy(ImprovementPolicy):
         res, _ = torch.sort(res, dim=1)
         res = res * (res != mx)
         maxsps = torch.max(torch.nonzero(res, as_tuple=True)[-1]) + 1
-        idx = res[:, :maxsps]
+        idx_sp = res[:, :maxsps]
 
         # Locations repeated to be same shape as subproblems tensor
         rep = torch.repeat_interleave(locs, k, dim=0)
@@ -294,16 +313,45 @@ class DecompPolicy(ImprovementPolicy):
         xy = []
         for i in range(2):
             # Gather coordinates by idx
-            xy.append(torch.gather(rep[:, :, i], 1, idx))
+            xy.append(torch.gather(rep[:, :, i], 1, idx_sp))
         
         locs = torch.stack(xy, dim=-1)
 
         # Problem mask is just where the locations are not pads
-        problem_mask = idx != 0
+        problem_mask = idx_sp != 0
 
         # Gather location demands
         rep = torch.cat((torch.zeros(bs * k, 1), torch.repeat_interleave(td["demand"], k, dim=0)), dim=1)
-        demand = torch.gather(rep, 1, idx)
+        demand = torch.gather(rep, 1, idx_sp)
+
+        # Subdivide the solution actions
+        rep = torch.cat((torch.zeros(bs, 1), idx + 1), dim=1)
+        actions = torch.gather(rep, 1, sol["actions"])
+        del rep
+
+        # By using a shift tensor we label the connecting depot nodes as their associated subproblems
+        mask = actions == 0
+        shift = torch.full_like(actions, 0)
+        shift[:, 1:] = actions[:, :-1]
+        actions[mask] = shift[mask]
+        
+        # Delegate the nodes into their respective subproblem rows
+        res = torch.zeros((k * bs, actions.shape[1]), dtype=torch.int64)
+        map_ps = torch.arange(0, k * bs, step=k, dtype=torch.int64).unsqueeze(1) + actions.to(torch.int64)
+        res = res.scatter(0, map_ps - 1, sol["actions"])
+        del map_ps
+
+        # By using a shift tensor we shift the unnecessary pads (non depot zeros) to the end of their rows
+        shift = torch.full_like(res, 0)
+        shift[:, 1:] = res[:, :-1]
+        mask = shift != res
+        res = DecompPolicy._shift_pad(bs * k, res, mask)
+
+        # Use two argsorts to get the correct intersubproblem indices of the nodes
+        mask = (res != 0)
+        res[res == 0] = mx
+        res = torch.argsort(torch.argsort(res, dim=1), dim=1) + 1
+        res = res * mask
 
         # Before reset, state td must have these key variable pairs
         td = TensorDict({"locs": locs,
@@ -311,7 +359,19 @@ class DecompPolicy(ImprovementPolicy):
                         "problem_mask": problem_mask,
                         "depot": torch.repeat_interleave(td["depot"], k, 0),
                         "capacity": torch.repeat_interleave(td["capacity"], k, 0),
-                        "locs_idx": idx},
+                        "locs_idx": idx_sp},
                         batch_size=bs * k)
 
-        return td
+        return td, res
+    
+    @staticmethod
+    def _shift_pad(bs, t, mask):
+        row_lengths = mask.sum(dim=1)
+        max_length = torch.max(row_lengths)
+
+        res = torch.zeros((bs, max_length), dtype=torch.int64)
+        idx = torch.arange(max_length).expand(bs, max_length)
+        mask_idx = (idx < row_lengths.unsqueeze(1))
+        res[mask_idx] = t[mask]
+
+        return res

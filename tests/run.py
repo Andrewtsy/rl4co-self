@@ -1,20 +1,32 @@
 import torch
+import importlib
+import time
 
 from rl4co.envs import CVRPEnv
-from rl4co.models.zoo.decomposition import DECOMP, KmeansPol, BaryCenterDecomp, Delegate
-from rl4co.models.zoo.am import AttentionModelPolicy
+from rl4co.models.zoo.decomposition import DECOMP, BaryCenterDecomp
 
 torch.manual_seed(42)
 
-env = CVRPEnv(generator_params={'num_loc': 10})
+PATH = "checkpoints/am-a2c-cvrp50.ckpt"
+model_root = importlib.import_module("rl4co.models.rl")
+model_cls = getattr(model_root, "A2C")
+model_a2c50 = model_cls.load_from_checkpoint(PATH, load_baseline=False)
+model_a2c50 = model_a2c50.to(torch.device("cpu"))
+
+decomp_pol = BaryCenterDecomp(4, policy=model_a2c50.policy, naive_policy=model_a2c50.policy)
+
+env = CVRPEnv(generator_params={'num_loc': 2000})
 model = DECOMP(env,
-                baseline='rollout',
-                train_data_size=1_000,
-                val_data_size=100,
-                decomp_policy_kwargs={"num_subproblems": 2})
+               policy=decomp_pol,
+               baseline='rollout',
+               train_data_size=1_000,
+               val_data_size=100,
+               policy_kwargs={"num_subproblems": 40})
 
-td = env.reset(batch_size=[2])
-decomp_policy = model.policy
-out = decomp_policy(td, env, 2)
+td = env.reset(batch_size=[4])
 
-print(out["reward"])
+st = time.time()
+out = model.policy(td, env, 4)
+t = time.time() - st
+
+print(f"{out['reward']} reward in {t} seconds")
