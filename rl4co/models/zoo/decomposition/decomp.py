@@ -62,6 +62,8 @@ class DecompPolicy(ImprovementPolicy):
         td: TensorDict = None,
         env: Union[str, RL4COEnvBase] = None,
         its: int = None,
+        temp: int = 0,
+        r: int = 0,
         phase: str = "train",
         return_actions: bool = False,
         return_entropy: bool = False,
@@ -74,6 +76,8 @@ class DecompPolicy(ImprovementPolicy):
             env: Environment our states are in
             sol: Dictionary of current best solution
             its: Number of iterations of the improvement policy
+            temp: Probability of accepting worse solution in simulated annealing (starting tempereature)
+            r: Decay rate
         Returns:
             out: Dictionary containing actions, reward, log likelihood, 
         """
@@ -83,6 +87,7 @@ class DecompPolicy(ImprovementPolicy):
         # Refrain from checking solution validity until the end of the evaluation
         env.check_solution = False
         sol = self.naive_policy(td, env, return_actions=True)
+        print(sol["reward"])
         # intermediates = []
         # intermediates.append(sol["actions"].clone())
         # print(sol["reward"])
@@ -107,6 +112,11 @@ class DecompPolicy(ImprovementPolicy):
                              batch_size=td.batch_size[0])
             mask = nsol["reward"] > sol["reward"]
 
+            # Simulated Annealing
+            tmp = torch.rand(mask.shape)
+            mask = mask | (tmp < temp)
+            temp = temp * r
+
             res["actions"][mask, :nsol["actions"].shape[1]] = nsol["actions"][mask, :]
             res["actions"][~mask, :sol["actions"].shape[1]] = sol["actions"][~mask, :]
 
@@ -119,10 +129,11 @@ class DecompPolicy(ImprovementPolicy):
             # sol_copy = sol["actions"].clone()
             # intermediates.append((td_copy, sol_copy))
             sol = self.recompose(td, res)
-            # print(sol["reward"])
+            print(sol["reward"])
             td = td_base.copy()
         env.check_solution = True
         env.check_solution_validity(td, sol["actions"])
+        print(f"Final Rewards: {sol['reward']}")
         return sol
 
 
@@ -336,9 +347,11 @@ class DecompPolicy(ImprovementPolicy):
         actions[mask] = shift[mask]
         
         # Delegate the nodes into their respective subproblem rows
-        res = torch.zeros((k * bs, actions.shape[1]), dtype=torch.int64)
+        mask = actions != 0
+        res = torch.zeros((k * bs + 1, actions.shape[1]), dtype=torch.int64)
         map_ps = torch.arange(0, k * bs, step=k, dtype=torch.int64).unsqueeze(1) + actions.to(torch.int64)
-        res = res.scatter(0, map_ps - 1, sol["actions"])
+        map_ps = map_ps * mask
+        res = res.scatter(0, map_ps, sol["actions"])[1:]
         del map_ps
 
         # By using a shift tensor we shift the unnecessary pads (non depot zeros) to the end of their rows

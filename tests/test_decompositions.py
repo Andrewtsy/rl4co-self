@@ -8,7 +8,7 @@ from rl4co.envs import CVRPEnv
 
 torch.manual_seed(42)
 
-env = CVRPEnv(generator_params={'num_loc': 100})
+env = CVRPEnv(generator_params={'num_loc': 500})
 
 PATH = "checkpoints/am-a2c-cvrp50.ckpt"
 model_root = importlib.import_module("rl4co.models.rl")
@@ -18,12 +18,12 @@ model_a2c50 = model_a2c50.to(torch.device("cpu"))
 
 td = env.reset(batch_size=[4])
 
-decomp_pol = BaryCenterDecomp(4, policy=model_a2c50.policy, naive_policy=model_a2c50.policy)
-# sol = decomp_pol.naive_policy(td, env, return_actions=True)
+decomp_pol = BaryCenterDecomp(10, policy=model_a2c50.policy, naive_policy=model_a2c50.policy)
+sol = decomp_pol(td, env, 8, 0.2, 0.75)
 
 class TestBaryCenter:
     def test_full(self):
-        sol = decomp_pol(td, env, 4)
+        sol = decomp_pol(td, env, 8, 0.4, 0.75)
         pass
 
     def test_assign_routes(self):
