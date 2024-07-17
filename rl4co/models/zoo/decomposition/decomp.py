@@ -76,10 +76,10 @@ class DecompPolicy(ImprovementPolicy):
             env: Environment our states are in
             sol: Dictionary of current best solution
             its: Number of iterations of the improvement policy
-            temp: Probability of accepting worse solution in simulated annealing (starting tempereature)
+            temp: Probability of accepting worse solution in simulated annealing (starting temperature)
             r: Decay rate
         Returns:
-            out: Dictionary containing actions, reward, log likelihood, 
+            out: Dictionary containing actions, reward
         """
         # Cache copy of our state dictionary to assist recomposition.
         td_base = td.copy()
@@ -88,10 +88,11 @@ class DecompPolicy(ImprovementPolicy):
         env.check_solution = False
         sol = self.naive_policy(td, env, return_actions=True)
         print(sol["reward"])
-        # intermediates = []
-        # intermediates.append(sol["actions"].clone())
+        # intermediates = {}
+        # intermediates.append(sol.clone())
         # print(sol["reward"])
         # Iterative loop to improve our solution
+        better = 0
         for _ in range(its):
             print(f"iteration {_}")
             # Decompose our state td and sol tensor into its k subproblems
@@ -99,6 +100,7 @@ class DecompPolicy(ImprovementPolicy):
             td, actions = self.decompose(td, env, sol)
             td = env.reset(td)
             td["action_mask"] = torch.concat((torch.ones((td.batch_size[0], 1), dtype=bool), td["problem_mask"]), dim=1)
+                        
             # Apply our constructive policy to each subproblem using parallelization
             nsol = self.policy(td, env, problem_mask=True, return_actions=True)
 
@@ -110,10 +112,16 @@ class DecompPolicy(ImprovementPolicy):
             )
             sol = TensorDict({"actions": actions, "reward": env._get_reward(td, actions)},
                              batch_size=td.batch_size[0])
+            
+            # td_copy = td.clone()
+            # sol_copy = sol.clone()
+            # intermediates[f"Iteration {_}"] = [td_copy, sol_copy]
+
             mask = nsol["reward"] > sol["reward"]
 
             # Simulated Annealing
             tmp = torch.rand(mask.shape)
+            better += mask.sum()
             mask = mask | (tmp < temp)
             temp = temp * r
 
@@ -125,16 +133,16 @@ class DecompPolicy(ImprovementPolicy):
 
             # Recompose our decomposed state and solution to the original problem sizes
             # To save complexity at the cost of some memory, we use our cached state td
-            # td_copy = td.clone()
-            # sol_copy = sol["actions"].clone()
-            # intermediates.append((td_copy, sol_copy))
+            # sol_copy = res.clone()
+            # intermediates[f"Iteration {_}"].append(sol_copy)
+            
             sol = self.recompose(td, res)
             print(sol["reward"])
             td = td_base.copy()
         env.check_solution = True
         env.check_solution_validity(td, sol["actions"])
         print(f"Final Rewards: {sol['reward']}")
-        return sol
+        return sol, better
 
 
     def decompose(
