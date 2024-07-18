@@ -88,6 +88,7 @@ class DecompPolicy(ImprovementPolicy):
         env.check_solution = False
         sol = self.naive_policy(td, env, return_actions=True)
         print(sol["reward"])
+        init_reward = sol["reward"].mean()
         # intermediates = {}
         # intermediates.append(sol.clone())
         # print(sol["reward"])
@@ -118,10 +119,10 @@ class DecompPolicy(ImprovementPolicy):
             # intermediates[f"Iteration {_}"] = [td_copy, sol_copy]
 
             mask = nsol["reward"] > sol["reward"]
+            better += mask.sum()
 
             # Simulated Annealing
             tmp = torch.rand(mask.shape)
-            better += mask.sum()
             mask = mask | (tmp < temp)
             temp = temp * r
 
@@ -141,7 +142,7 @@ class DecompPolicy(ImprovementPolicy):
             td = td_base.copy()
         env.check_solution = True
         env.check_solution_validity(td, sol["actions"])
-        print(f"Final Rewards: {sol['reward']}")
+        print(f"Final Reward improvement: {sol['reward'].mean() - init_reward}")
         return sol, better
 
 

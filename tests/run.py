@@ -20,13 +20,12 @@ model = DECOMP(env,
                policy=decomp_pol,
                baseline='rollout',
                train_data_size=1_000,
-               val_data_size=100,
-               policy_kwargs={"num_subproblems": 10})
+               val_data_size=100)
 
 td = env.reset(batch_size=[4])
 
 st = time.time()
-out, b = model.policy(td, env, 5, 1, 1)
+out, b = model.policy(td, env, 4, 1, 1)
 t = time.time() - st
 
 print(f"{out['reward']} reward in {t} seconds.\n {b} solutions improved.")

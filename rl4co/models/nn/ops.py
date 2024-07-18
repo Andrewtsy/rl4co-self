@@ -43,6 +43,9 @@ class Normalization(nn.Module):
             self.normalizer = "layer"
 
     def forward(self, x, attn_mask=None):
+        # Andrew's edits
+        if attn_mask is not None:
+            return self.padded_forward(x, attn_mask)
         if isinstance(self.normalizer, nn.BatchNorm1d):
             return self.normalizer(x.view(-1, x.size(-1))).view(*x.size())
         elif isinstance(self.normalizer, nn.InstanceNorm1d):
@@ -54,7 +57,21 @@ class Normalization(nn.Module):
         else:
             assert self.normalizer is None, "Unknown normalizer type"
             return x
-
+        
+    # Andrew's edits
+    def padded_forward(self, x, attn_mask):
+        gamma, beta = self.normalizer.weight, self.normalizer.bias
+        if isinstance(self.normalizer, nn.BatchNorm1d):
+            mu, var = x[attn_mask].mean(dim=0), x[attn_mask].var(dim=0)
+            return ((x.view(-1, x.size(-1)) - mu) / 
+                    torch.sqrt(var + 1e-05) * gamma + beta).view(*x.size())
+        elif isinstance(self.normalizer, nn.InstanceNorm1d):
+            raise NotImplementedError
+        elif self.normalizer == "layer":
+            raise NotImplementedError
+        else:
+            assert self.normalizer is None, "Unknown normalizer type"
+            return x
 
 class PositionalEncoding(nn.Module):
     def __init__(self, embed_dim: int, dropout: float = 0.1, max_len: int = 1000):
