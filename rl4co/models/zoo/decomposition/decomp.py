@@ -2,6 +2,7 @@ from typing import Any, Union
 import torch
 from tensordict.tensordict import TensorDict
 
+from rl4co.utils.ops import gather_by_index
 from rl4co.envs import RL4COEnvBase
 from rl4co.models.zoo.am import AttentionModelPolicy
 from rl4co.models.common import ImprovementPolicy, ConstructivePolicy
@@ -275,20 +276,13 @@ class DecompPolicy(ImprovementPolicy):
             grps = grps * (actions != 0)
             msks = grps.unsqueeze(2) == grp_names
             
-            # Find barycenters of x and y coordinates independently
-            xy = []
-            for i in range(2):
-                # Add a depot dummy column to the tensor to correctly offset the indices
-                # Then, gather the x/y coordinate to the associated node position
-                # tmp = torch.cat((torch.zeros((td_locs.shape[0], 1)), td_locs[:, :, i]), dim=1)
-                tmp = torch.gather(td_locs[:, :, i], 1, actions.to(torch.int64))
+            # Find barycenters of x and y coordinates
+            # Gather the x/y coordinates to their node positions and calculate their group means
+            tmp = gather_by_index(td_locs, actions)
+            b = tmp.unsqueeze(2) * msks.unsqueeze(3)
+            barycenters = b.sum(dim=1) / (b != 0).sum(dim=1)
 
-                # Reformat our node coordinates by group and calculate their group means
-                b = (tmp.unsqueeze(2) * msks)
-                b = b.sum(dim=1) / (b != 0).sum(dim=1)
-                xy.append(b)
-
-            return groups_idx, torch.stack(xy, dim=-1)
+            return groups_idx, barycenters
     
     @staticmethod
     def delegate(
@@ -329,13 +323,8 @@ class DecompPolicy(ImprovementPolicy):
 
         # Locations repeated to be same shape as subproblems tensor
         rep = torch.repeat_interleave(locs, k, dim=0)
-        # Independently construct x and y coordinate location tensors
-        xy = []
-        for i in range(2):
-            # Gather coordinates by idx
-            xy.append(torch.gather(rep[:, :, i], 1, idx_sp))
-        
-        locs = torch.stack(xy, dim=-1)
+        # Construct x and y coordinate location tensors
+        locs = gather_by_index(rep, idx_sp)
 
         # Problem mask is just where the locations are not pads
         problem_mask = idx_sp != 0

@@ -15,7 +15,7 @@ model_a2c50 = model_a2c50.to(torch.device("cpu"))
 
 decomp_pol = BaryCenterDecomp(4, policy=model_a2c50.policy, naive_policy=model_a2c50.policy)
 
-env = CVRPEnv(generator_params={'num_loc': 500})
+env = CVRPEnv(generator_params={'num_loc': 200})
 model = DECOMP(env,
                policy=decomp_pol,
                baseline='rollout',
@@ -25,7 +25,7 @@ model = DECOMP(env,
 td = env.reset(batch_size=[4])
 
 st = time.time()
-out, b = model.policy(td, env, 4, 1, 1)
+out, b = model.policy(td, env, 10, 0.1, 0.95)
 t = time.time() - st
 
-print(f"{out['reward']} reward in {t} seconds.\n {b} solutions improved.")
+print(f"{out['reward'].mean()} reward in {t} seconds.\n {b} solutions improved.")
