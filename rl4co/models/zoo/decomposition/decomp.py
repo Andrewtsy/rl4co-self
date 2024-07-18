@@ -90,8 +90,8 @@ class DecompPolicy(ImprovementPolicy):
         sol = self.naive_policy(td, env, return_actions=True)
         print(sol["reward"])
         init_reward = sol["reward"].mean()
-        # intermediates = {}
-        # intermediates.append(sol.clone())
+        intermediates = []
+        intermediates.append(sol["reward"].mean())
         # print(sol["reward"])
         # Iterative loop to improve our solution
         better = 0
@@ -136,15 +136,16 @@ class DecompPolicy(ImprovementPolicy):
             # Recompose our decomposed state and solution to the original problem sizes
             # To save complexity at the cost of some memory, we use our cached state td
             # sol_copy = res.clone()
-            # intermediates[f"Iteration {_}"].append(sol_copy)
             
             sol = self.recompose(td, res)
+
+            intermediates.append(sol["reward"].mean())
             print(sol["reward"])
             td = td_base.copy()
         env.check_solution = True
         env.check_solution_validity(td, sol["actions"])
         print(f"Final Reward improvement: {sol['reward'].mean() - init_reward}")
-        return sol, better
+        return sol, better, intermediates
 
 
     def decompose(
