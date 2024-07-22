@@ -94,7 +94,7 @@ class DecompPolicy(ImprovementPolicy):
         intermediates.append(sol["reward"].mean())
         # print(sol["reward"])
         # Iterative loop to improve our solution
-        better = 0
+        # better = 0
         for _ in range(its):
             print(f"iteration {_}")
             # Decompose our state td and sol tensor into its k subproblems
@@ -120,7 +120,7 @@ class DecompPolicy(ImprovementPolicy):
             # intermediates[f"Iteration {_}"] = [td_copy, sol_copy]
 
             mask = nsol["reward"] > sol["reward"]
-            better += mask.sum()
+            # better += mask.sum()
 
             # Simulated Annealing
             tmp = torch.rand(mask.shape)
@@ -145,7 +145,7 @@ class DecompPolicy(ImprovementPolicy):
         env.check_solution = True
         env.check_solution_validity(td, sol["actions"])
         print(f"Final Reward improvement: {sol['reward'].mean() - init_reward}")
-        return sol, better, intermediates
+        return sol,     intermediates
 
 
     def decompose(
