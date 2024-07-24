@@ -241,7 +241,7 @@ class MoE(nn.Module):
             load = self._gates_to_load(gates)
         return gates, load
 
-    def forward(self, x, loss_coef=0.):
+    def forward(self, x, loss_coef=0., mask=None):
         """
         Token/Node-level Gating with the default gating algorithm in <https://arxiv.org/abs/1701.06538>.
         In specific, each token/node chooses TopK experts, auxiliary losses required for load balancing.

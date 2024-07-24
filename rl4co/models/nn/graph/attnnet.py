@@ -12,8 +12,16 @@ from rl4co.utils.pylogger import get_pylogger
 
 log = get_pylogger(__name__)
 
+class MaskedSequential(nn.Sequential):
+    """Sequential model wrapper that allows for passing in of masks
+    """
+    def forward(self, input, mask=None):
+        for module in self:
+            input = module(input, mask=mask)
+        return input
 
-class MultiHeadAttentionLayer(nn.Sequential):
+
+class MultiHeadAttentionLayer(MaskedSequential):
     """Multi-Head Attention Layer with normalization and feed-forward layer
 
     Args:
@@ -77,7 +85,7 @@ class GraphAttentionNetwork(nn.Module):
     ):
         super(GraphAttentionNetwork, self).__init__()
 
-        self.layers = nn.Sequential(
+        self.layers = MaskedSequential(
             *(
                 MultiHeadAttentionLayer(
                     embed_dim,
@@ -99,5 +107,5 @@ class GraphAttentionNetwork(nn.Module):
             mask: [batch_size, graph_size, graph_size] mask for the input embeddings. Unused for now.
         """
         # assert mask is None, "Mask not yet supported!"
-        h = self.layers(x, attn_mask=mask) # Added by Andrew
+        h = self.layers(x, mask=mask) # Added by Andrew
         return h
