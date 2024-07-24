@@ -99,5 +99,5 @@ class GraphAttentionNetwork(nn.Module):
             mask: [batch_size, graph_size, graph_size] mask for the input embeddings. Unused for now.
         """
         # assert mask is None, "Mask not yet supported!"
-        h = self.layers(x, mask=mask) # Added by Andrew
+        h = self.layers(x, attn_mask=mask) # Added by Andrew
         return h
