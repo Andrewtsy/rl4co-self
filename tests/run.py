@@ -26,7 +26,7 @@ model = DECOMP(env,
 td = env.reset(batch_size=[10])
 
 st = time.time()
-out, b, inters = model.policy(td, env, 100, 0.1, 0.98)
+out, inters = model.policy(td, env, 10, 0.1, 0.98)
 t = time.time() - st
 
 print(f"{out['reward'].mean()} reward in {t} seconds.\n {b} solutions improved.")
