@@ -33,13 +33,3 @@ out, inters = model.policy(td, env, 50, 0.1, 0.98)
 t = time.time() - st
 
 print(f"{out['reward'].mean()} reward in {t} seconds.")
-
-<<<<<<< HEAD
-with open("history.csv", "w") as fhandle:
-    writer = csv.writer(fhandle)
-    writer.writerows([float(el)] for el in inters)
-=======
-# with open("history.csv", "w") as fhandle:
-#     writer = csv.writer(fhandle)
-#     writer.writerows([float(el)] for el in inters)
->>>>>>> f4056c502bb75231929e8f9ec10c1e316a065de1
