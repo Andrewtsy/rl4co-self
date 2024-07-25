@@ -6,3 +6,4 @@ from rl4co.tasks.train import train
 # Alternatively, you may run without Hydra (see examples/1.quickstart.ipynb)
 if __name__ == "__main__":
     train()
+

@@ -2,12 +2,17 @@ import torch
 import importlib
 import time
 import csv
+import argparse
 
 from rl4co.models import AttentionModelPolicy
 from rl4co.envs import CVRPEnv
 from rl4co.models.zoo.decomposition import DECOMP, BaryCenterDecomp
 
 torch.manual_seed(42)
+
+parser = argparse.ArgumentParser(description="Arguments")
+parser.add_argument("--name", type=str, help="String type name argument")
+args = parser.parse_args()
 
 env = CVRPEnv(generator_params={'num_loc': 200})
 td = env.reset(batch_size=[10])
@@ -34,6 +39,6 @@ t = time.time() - st
 
 print(f"{out['reward'].mean()} reward in {t} seconds.")
 
-with open("history.csv", "w") as fhandle:
+with open(f"results/{args.name}.csv", "w") as fhandle:
     writer = csv.writer(fhandle)
-    writer.writerows(list(el) for el in intermediates)
+    writer.writerows(list(el.tolist()) for el in intermediates)
