@@ -21,7 +21,7 @@ class MaskedSequential(nn.Sequential):
         return input
 
 
-class MultiHeadAttentionLayer(MaskedSequential):
+class MultiHeadAttentionLayer(nn.Sequential):
     """Multi-Head Attention Layer with normalization and feed-forward layer
 
     Args:
@@ -57,6 +57,11 @@ class MultiHeadAttentionLayer(MaskedSequential):
             SkipConnection(ffn),
             Normalization(embed_dim, normalization),
         )
+
+    def forward(self, input, mask=None):
+        for module in self:
+            input = module(input, mask=mask)
+        return input
 
 
 class GraphAttentionNetwork(nn.Module):
@@ -106,6 +111,9 @@ class GraphAttentionNetwork(nn.Module):
             x: [batch_size, graph_size, embed_dim] initial embeddings to process
             mask: [batch_size, graph_size, graph_size] mask for the input embeddings. Unused for now.
         """
-        # assert mask is None, "Mask not yet supported!"
-        h = self.layers(x, mask) # Added by Andrew
-        return h
+        # Added by Andrew
+        # Slightly overwrite forward to explictly pass the mask through each layer
+        
+        for layer in self.layers:
+            x = layer(x, mask)
+        return x
