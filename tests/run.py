@@ -17,6 +17,7 @@ td = env.reset(batch_size=[10])
 # model_cls = getattr(model_root, "A2C")
 # model_a2c50 = model_cls.load_from_checkpoint(PATH, load_baseline=False)
 # model_a2c50 = model_a2c50.to(torch.device("cpu"))
+# policy = model_a2c50.policy
 
 policy = AttentionModelPolicy(env_name=env.name)
 decomp_pol = BaryCenterDecomp(4, policy=policy, naive_policy=policy)

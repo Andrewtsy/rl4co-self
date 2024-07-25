@@ -14,7 +14,7 @@ class SkipConnection(nn.Module):
         self.module = module
 
     def forward(self, x, mask=None):
-        return x + self.module(x, mask=mask) # Pass mask by Andrew
+        return x + self.module(x, mask=mask) # Pass attn_mask by Andrew
 
 
 class AdaptiveSequential(nn.Sequential):
