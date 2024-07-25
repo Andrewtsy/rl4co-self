@@ -108,7 +108,7 @@ class MultiHeadAttention(nn.Module):
         self.Wqkv = nn.Linear(embed_dim, 3 * embed_dim, bias=bias, **factory_kwargs)
         self.out_proj = nn.Linear(embed_dim, embed_dim, bias=bias, **factory_kwargs)
 
-    def forward(self, x, attn_mask=None):
+    def forward(self, x, mask=None):
         """x: (batch, seqlen, hidden_dim) (where hidden_dim = num heads * head dim)
         attn_mask: bool tensor of shape (batch, seqlen)
         """
@@ -117,11 +117,11 @@ class MultiHeadAttention(nn.Module):
             self.Wqkv(x), "b s (three h d) -> three b h s d", three=3, h=self.num_heads
         ).unbind(dim=0)
 
-        if attn_mask is not None:
-            attn_mask = (
-                attn_mask.unsqueeze(1)
-                if attn_mask.ndim == 3
-                else attn_mask.unsqueeze(1).unsqueeze(2)
+        if mask is not None:
+            mask = (
+                mask.unsqueeze(1)
+                if mask.ndim == 3
+                else mask.unsqueeze(1).unsqueeze(2)
             )
 
         # Scaled dot product attention
@@ -129,7 +129,7 @@ class MultiHeadAttention(nn.Module):
             q,
             k,
             v,
-            attn_mask=attn_mask,
+            attn_mask=mask,
             dropout_p=self.attention_dropout,
         )
         return self.out_proj(rearrange(out, "b h s d -> b s (h d)"))

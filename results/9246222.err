@@ -1,0 +1,12 @@
+cpu-bind=MASK - n2gpu1231, task  0  0 [834051]: mask |B-------|--------||--------|--------||--------|--------||--------|--------||||B-------|--------||--------|--------||--------|--------||--------|--------|  set
+sh: line 1: 834080 Killed                  /usr/bin/lua /usr/share/lmod/lmod/libexec/lmod bash --regexp --no_redirect --spider_timeout 2.0 spider '^lang/Anaconda3/2022%.5$' 2> /dev/null
+sh: line 1: 834085 Killed                  /usr/bin/lua /usr/share/lmod/lmod/libexec/lmod bash --regexp --no_redirect --spider_timeout 2.0 spider '^lang/Anaconda3/2022%.5$' 2> /dev/null
+Lmod has detected the following error: These module(s) or extension(s) exist
+but cannot be loaded as requested: "lang/Anaconda3/2022.5"
+   Try: "module spider lang/Anaconda3/2022.5" to see how to load the module(s).
+
+
+
+/var/spool/slurmd/job9246222/slurm_script: line 20: source: /pc2/groups/hpc-prf-winf4/atao/rl4co: is a directory
+/var/spool/slurmd/job9246222/slurm_script: line 22: 834087 Killed                  python3 run.py "$@"
+slurmstepd: error: Detected 3 oom_kill events in StepId=9246222.batch. Some of the step tasks have been OOM Killed.

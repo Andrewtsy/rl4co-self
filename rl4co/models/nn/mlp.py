@@ -51,7 +51,7 @@ class MLP(nn.Module):
         self.input_norm = self._get_norm_layer(input_norm, input_dim)
         self.output_norm = self._get_norm_layer(output_norm, output_dim)
 
-    def forward(self, xs, attn_mask=None):
+    def forward(self, xs, mask=None):
         xs = self.input_norm(xs)
         for i, lin in enumerate(self.lins[:-1]):
             xs = lin(xs)
