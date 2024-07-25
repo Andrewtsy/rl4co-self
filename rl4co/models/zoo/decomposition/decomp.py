@@ -65,6 +65,7 @@ class DecompPolicy(ImprovementPolicy):
         its: int = None,
         temp: int = 0,
         r: int = 0,
+        history: bool = False,
         phase: str = "train",
         return_actions: bool = False,
         return_entropy: bool = False,
@@ -79,6 +80,7 @@ class DecompPolicy(ImprovementPolicy):
             its: Number of iterations of the improvement policy
             temp: Probability of accepting worse solution in simulated annealing (starting temperature)
             r: Decay rate
+            history: return list of iteration rewards?
         Returns:
             out: Dictionary containing actions, reward
         """
@@ -88,10 +90,11 @@ class DecompPolicy(ImprovementPolicy):
         # Refrain from checking solution validity until the end of the evaluation
         env.check_solution = False
         sol = self.naive_policy(td, env, return_actions=True)
-        print(sol["reward"])
         init_reward = sol["reward"].mean()
-        intermediates = []
-        intermediates.append(sol["reward"].mean())
+        print(init_reward)
+        if history:
+            intermediates = []
+            intermediates.append(sol["reward"])
         # print(sol["reward"])
         # Iterative loop to improve our solution
         # better = 0
@@ -138,15 +141,14 @@ class DecompPolicy(ImprovementPolicy):
             # sol_copy = res.clone()
             
             sol = self.recompose(td, res)
-
-            intermediates.append(sol["reward"].mean())
-            print(sol["reward"])
+            if history:
+                intermediates.append(sol["reward"])
+            print(sol["reward"].mean())
             td = td_base.copy()
         env.check_solution = True
         env.check_solution_validity(td, sol["actions"])
         print(f"Final Reward improvement: {sol['reward'].mean() - init_reward}")
-        return sol,     intermediates
-
+        return sol, intermediates
 
     def decompose(
         self,

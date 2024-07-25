@@ -9,7 +9,7 @@ from rl4co.models.zoo.decomposition import DECOMP, BaryCenterDecomp
 
 torch.manual_seed(42)
 
-env = CVRPEnv(generator_params={'num_loc': 500})
+env = CVRPEnv(generator_params={'num_loc': 200})
 td = env.reset(batch_size=[10])
 
 PATH = "checkpoints/am-a2c-cvrp50.ckpt"
@@ -29,11 +29,11 @@ model = DECOMP(env,
                val_data_size=100)
 
 st = time.time()
-out, inters = model.policy(td, env, 50, 0.1, 0.98)
+out, intermediates = model.policy(td, env, 50, 0.1, 0.98, history=True)
 t = time.time() - st
 
 print(f"{out['reward'].mean()} reward in {t} seconds.")
 
-# with open("history.csv", "w") as fhandle:
-#     writer = csv.writer(fhandle)
-#     writer.writerows([float(el)] for el in inters)
+with open("history.csv", "w") as fhandle:
+    writer = csv.writer(fhandle)
+    writer.writerows(list(el) for el in intermediates)
