@@ -1,0 +1,172 @@
+[[36m2024-07-25 17:22:14,778[0m][[34mrl4co.utils.utils[0m][[32mINFO[0m] - Enforcing tags! <cfg.extras.enforce_tags=True>[0m
+[[36m2024-07-25 17:22:14,785[0m][[34mrl4co.utils.utils[0m][[32mINFO[0m] - Printing config tree with Rich! <cfg.extras.print_config=True>[0m
+CONFIG
+├── model
+│   └── generate_default_data: true                                             
+│       metrics:                                                                
+│         train:                                                                
+│         - loss                                                                
+│         - reward                                                              
+│         val:                                                                  
+│         - reward                                                              
+│         test:                                                                 
+│         - reward                                                              
+│         log_on_step: true                                                     
+│       _target_: rl4co.models.AttentionModel                                   
+│       baseline: rollout                                                       
+│       batch_size: 512                                                         
+│       val_batch_size: 1024                                                    
+│       test_batch_size: 1024                                                   
+│       train_data_size: 1280000                                                
+│       val_data_size: 10000                                                    
+│       test_data_size: 10000                                                   
+│       optimizer_kwargs:                                                       
+│         lr: 0.0001                                                            
+│                                                                               
+├── callbacks
+│   └── model_checkpoint:                                                       
+│         _target_: lightning.pytorch.callbacks.ModelCheckpoint                 
+│         dirpath: /scratch/hpc-prf-winf4/atao/rl4co-self/logs/train/runs/tsp50/
+│         filename: epoch_{epoch:03d}                                           
+│         monitor: val/reward                                                   
+│         verbose: false                                                        
+│         save_last: true                                                       
+│         save_top_k: 1                                                         
+│         mode: max                                                             
+│         auto_insert_metric_name: false                                        
+│         save_weights_only: false                                              
+│         every_n_train_steps: null                                             
+│         train_time_interval: null                                             
+│         every_n_epochs: null                                                  
+│         save_on_train_epoch_end: null                                         
+│       model_summary:                                                          
+│         _target_: lightning.pytorch.callbacks.RichModelSummary                
+│         max_depth: 5                                                          
+│       rich_progress_bar:                                                      
+│         _target_: lightning.pytorch.callbacks.RichProgressBar                 
+│       speed_monitor:                                                          
+│         _target_: rl4co.utils.callbacks.speed_monitor.SpeedMonitor            
+│         intra_step_time: true                                                 
+│         inter_step_time: true                                                 
+│         epoch_time: true                                                      
+│       learning_rate_monitor:                                                  
+│         _target_: lightning.pytorch.callbacks.LearningRateMonitor             
+│         logging_interval: epoch                                               
+│                                                                               
+├── logger
+│   └── wandb:                                                                  
+│         _target_: lightning.pytorch.loggers.wandb.WandbLogger                 
+│         save_dir: /scratch/hpc-prf-winf4/atao/rl4co-self/logs/train/runs/tsp50
+│         offline: false                                                        
+│         id: null                                                              
+│         anonymous: null                                                       
+│         project: rl4co                                                        
+│         log_model: false                                                      
+│         prefix: ''                                                            
+│         group: tsp50                                                          
+│         tags:                                                                 
+│         - am                                                                  
+│         - tsp                                                                 
+│         job_type: ''                                                          
+│         name: am-tsp50                                                        
+│                                                                               
+├── trainer
+│   └── _target_: rl4co.utils.trainer.RL4COTrainer                              
+│       default_root_dir: /scratch/hpc-prf-winf4/atao/rl4co-self/logs/train/runs
+│       gradient_clip_val: 1.0                                                  
+│       accelerator: auto                                                       
+│       precision: 16-mixed                                                     
+│       check_val_every_n_epoch: 1                                              
+│       deterministic: false                                                    
+│       max_epochs: 100                                                         
+│                                                                               
+├── paths
+│   └── root_dir: /scratch/hpc-prf-winf4/atao/rl4co-self                        
+│       data_dir: /scratch/hpc-prf-winf4/atao/rl4co-self/data                   
+│       log_dir: /scratch/hpc-prf-winf4/atao/rl4co-self/logs                    
+│       output_dir: /scratch/hpc-prf-winf4/atao/rl4co-self/logs/train/runs/tsp50
+│       work_dir: /scratch/hpc-prf-winf4/atao/rl4co-self                        
+│                                                                               
+├── extras
+│   └── ignore_warnings: false                                                  
+│       enforce_tags: true                                                      
+│       print_config: true                                                      
+│                                                                               
+├── mode
+│   └── train                                                                   
+├── tags
+│   └── ['dev']                                                                 
+├── train
+│   └── True                                                                    
+├── test
+│   └── True                                                                    
+├── compile
+│   └── False                                                                   
+├── ckpt_path
+│   └── None                                                                    
+├── seed
+│   └── 1234                                                                    
+├── matmul_precision
+│   └── medium                                                                  
+└── env
+    └── _target_: rl4co.envs.TSPEnv                                             
+        name: tsp                                                               
+        generator_params:                                                       
+          num_loc: 50                                                           
+          loc_distribution: uniform                                             
+        data_dir: /scratch/hpc-prf-winf4/atao/rl4co-self/data/tsp               
+        val_file: tsp50_val_seed4321.npz                                        
+        test_file: tsp50_test_seed1234.npz                                      
+        check_solution: false                                                   
+                                                                                
+[[36m2024-07-25 17:22:14,890[0m][[34mrl4co.tasks.train[0m][[32mINFO[0m] - Instantiating environment <rl4co.envs.TSPEnv>[0m
+[[36m2024-07-25 17:22:16,923[0m][[34mrl4co.tasks.train[0m][[32mINFO[0m] - Instantiating model <rl4co.models.AttentionModel>[0m
+[[36m2024-07-25 17:22:20,058[0m][[34mrl4co.tasks.train[0m][[32mINFO[0m] - Instantiating callbacks...[0m
+[[36m2024-07-25 17:22:20,059[0m][[34mrl4co.utils.instantiators[0m][[32mINFO[0m] - Instantiating callback <lightning.pytorch.callbacks.ModelCheckpoint>[0m
+[[36m2024-07-25 17:22:20,074[0m][[34mrl4co.utils.instantiators[0m][[32mINFO[0m] - Instantiating callback <lightning.pytorch.callbacks.RichModelSummary>[0m
+[[36m2024-07-25 17:22:20,075[0m][[34mrl4co.utils.instantiators[0m][[32mINFO[0m] - Instantiating callback <lightning.pytorch.callbacks.RichProgressBar>[0m
+[[36m2024-07-25 17:22:20,075[0m][[34mrl4co.utils.instantiators[0m][[32mINFO[0m] - Instantiating callback <rl4co.utils.callbacks.speed_monitor.SpeedMonitor>[0m
+[[36m2024-07-25 17:22:20,088[0m][[34mrl4co.utils.instantiators[0m][[32mINFO[0m] - Instantiating callback <lightning.pytorch.callbacks.LearningRateMonitor>[0m
+[[36m2024-07-25 17:22:20,088[0m][[34mrl4co.tasks.train[0m][[32mINFO[0m] - Instantiating loggers...[0m
+[[36m2024-07-25 17:22:20,088[0m][[34mrl4co.utils.instantiators[0m][[32mINFO[0m] - Instantiating logger <lightning.pytorch.loggers.wandb.WandbLogger>[0m
+[[36m2024-07-25 17:22:20,095[0m][[34mrl4co.tasks.train[0m][[32mINFO[0m] - Instantiating trainer...[0m
+[[36m2024-07-25 17:22:20,125[0m][[34mrl4co.tasks.train[0m][[32mINFO[0m] - Logging hyperparameters![0m
+[[36m2024-07-25 17:22:26,088[0m][[34mrl4co.utils.utils[0m][[31mERROR[0m] - [0m
+Traceback (most recent call last):
+  File "/scratch/hpc-prf-winf4/atao/rl4co-self/rl4co/utils/utils.py", line 41, in wrap
+    metric_dict, object_dict = task_func(cfg=cfg)
+                               ^^^^^^^^^^^^^^^^^^
+  File "/scratch/hpc-prf-winf4/atao/rl4co-self/rl4co/tasks/train.py", line 69, in run
+    utils.log_hyperparameters(object_dict)
+  File "/pc2/groups/hpc-prf-winf4/atao/rl4co/lib/python3.11/site-packages/lightning_utilities/core/rank_zero.py", line 42, in wrapped_fn
+    return fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^
+  File "/scratch/hpc-prf-winf4/atao/rl4co-self/rl4co/utils/utils.py", line 178, in log_hyperparameters
+    logger.log_hyperparams(hparams)
+  File "/pc2/groups/hpc-prf-winf4/atao/rl4co/lib/python3.11/site-packages/lightning_utilities/core/rank_zero.py", line 42, in wrapped_fn
+    return fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^
+  File "/pc2/groups/hpc-prf-winf4/atao/rl4co/lib/python3.11/site-packages/lightning/pytorch/loggers/wandb.py", line 428, in log_hyperparams
+    self.experiment.config.update(params, allow_val_change=True)
+    ^^^^^^^^^^^^^^^
+  File "/pc2/groups/hpc-prf-winf4/atao/rl4co/lib/python3.11/site-packages/lightning/fabric/loggers/logger.py", line 118, in experiment
+    return fn(self)
+           ^^^^^^^^
+  File "/pc2/groups/hpc-prf-winf4/atao/rl4co/lib/python3.11/site-packages/lightning/pytorch/loggers/wandb.py", line 406, in experiment
+    self._experiment = wandb.init(**self._wandb_init)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/pc2/groups/hpc-prf-winf4/atao/rl4co/lib/python3.11/site-packages/wandb/sdk/wandb_init.py", line 1195, in init
+    wandb._sentry.reraise(e)
+  File "/pc2/groups/hpc-prf-winf4/atao/rl4co/lib/python3.11/site-packages/wandb/analytics/sentry.py", line 155, in reraise
+    raise exc.with_traceback(sys.exc_info()[2])
+  File "/pc2/groups/hpc-prf-winf4/atao/rl4co/lib/python3.11/site-packages/wandb/sdk/wandb_init.py", line 1180, in init
+    wi.setup(kwargs)
+  File "/pc2/groups/hpc-prf-winf4/atao/rl4co/lib/python3.11/site-packages/wandb/sdk/wandb_init.py", line 300, in setup
+    wandb_login._login(
+  File "/pc2/groups/hpc-prf-winf4/atao/rl4co/lib/python3.11/site-packages/wandb/sdk/wandb_login.py", line 346, in _login
+    wlogin.prompt_api_key()
+  File "/pc2/groups/hpc-prf-winf4/atao/rl4co/lib/python3.11/site-packages/wandb/sdk/wandb_login.py", line 280, in prompt_api_key
+    raise UsageError("api_key not configured (no-tty). call " + directive)
+wandb.errors.UsageError: api_key not configured (no-tty). call wandb.login(key=[your_api_key])
+[[36m2024-07-25 17:22:26,117[0m][[34mrl4co.utils.utils[0m][[32mINFO[0m] - Output dir: /scratch/hpc-prf-winf4/atao/rl4co-self/logs/train/runs/tsp50/am-tsp50/2024-07-25_17-22-14[0m
+[[36m2024-07-25 17:22:26,117[0m][[34mrl4co.utils.utils[0m][[32mINFO[0m] - Closing loggers...[0m

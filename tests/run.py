@@ -2,30 +2,25 @@ import torch
 import importlib
 import time
 import csv
-import argparse
 
 from rl4co.models import AttentionModelPolicy
 from rl4co.envs import CVRPEnv
 from rl4co.models.zoo.decomposition import DECOMP, BaryCenterDecomp
 
 torch.manual_seed(42)
+device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
-parser = argparse.ArgumentParser(description="Arguments")
-parser.add_argument("--name", type=str, help="String type name argument")
-args = parser.parse_args()
-
-env = CVRPEnv(generator_params={'num_loc': 200})
-td = env.reset(batch_size=[10])
+env = CVRPEnv(generator_params={'num_loc': 500})
+td = env.reset(batch_size=[1000]).to(device)
 
 PATH = "checkpoints/am-a2c-cvrp50.ckpt"
 model_root = importlib.import_module("rl4co.models.rl")
 model_cls = getattr(model_root, "A2C")
 model_a2c50 = model_cls.load_from_checkpoint(PATH, load_baseline=False)
-model_a2c50 = model_a2c50.to(torch.device("cpu"))
-policy = model_a2c50.policy
+model_a2c50 = model_a2c50
+policy = model_a2c50.policy.to(device)
 
-# policy = AttentionModelPolicy(env_name=env.name)
-decomp_pol = BaryCenterDecomp(10, policy=policy, naive_policy=policy)
+decomp_pol = BaryCenterDecomp(10, policy=policy, naive_policy=policy).to(device)
 
 model = DECOMP(env,
                policy=decomp_pol,
@@ -34,11 +29,7 @@ model = DECOMP(env,
                val_data_size=100)
 
 st = time.time()
-out, intermediates = model.policy(td, env, 50, 0.1, 0.98, history=True)
+out, inters = model.policy(td, env, 50, 0.1, 0.98)
 t = time.time() - st
 
 print(f"{out['reward'].mean()} reward in {t} seconds.")
-
-with open(f"results/{args.name}.csv", "w") as fhandle:
-    writer = csv.writer(fhandle)
-    writer.writerows(list(el.tolist()) for el in intermediates)

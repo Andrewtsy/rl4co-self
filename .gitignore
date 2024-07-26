@@ -13,6 +13,7 @@
 *saved_checkpoints*
 *.ckpt
 !checkpoints/am-a2c-cvrp50.ckpt
+!logs/train/runs/cvrp50/am-cvrp50/2024-07-25_17-38-35/checkpoints/last.ckpt
 
 # Hydra
 .hydra/

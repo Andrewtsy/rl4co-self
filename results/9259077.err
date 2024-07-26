@@ -1,0 +1,21 @@
+cpu-bind=MASK - n2dgx01, task  0  0 [2366211]: mask |B-------|--------||--------|--------||--------|--------||--------|--------||||BB------|--------||--------|--------||--------|--------||--------|--------|  set
+Lmod has detected the following error: The following module(s) are unknown:
+"lang/Anaconda3/2022.5"
+
+Please check the spelling or version number. Also try "module spider ..."
+It is also possible your cache file is out-of-date; it may help to try:
+  $ module --ignore_cache load "lang/Anaconda3/2022.5"
+
+Also make sure that all modulefiles written in TCL start with the string
+#%Module
+
+
+
+/var/spool/slurmd/job9259077/slurm_script: line 23: source: /pc2/groups/hpc-prf-winf4/atao/rl4co: is a directory
+Could not override 'env.num_loc'.
+To append to your config use +env.num_loc=50
+Key 'num_loc' is not in struct
+    full_key: env.num_loc
+    object_type=dict
+
+Set the environment variable HYDRA_FULL_ERROR=1 for a complete stack trace.

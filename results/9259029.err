@@ -1,0 +1,34 @@
+cpu-bind=MASK - n2dgx01, task  0  0 [2358427]: mask |B-------|--------||--------|--------||--------|--------||--------|--------||||BB------|--------||--------|--------||--------|--------||--------|--------|  set
+Lmod has detected the following error: The following module(s) are unknown:
+"lang/Anaconda3/2022.5"
+
+Please check the spelling or version number. Also try "module spider ..."
+It is also possible your cache file is out-of-date; it may help to try:
+  $ module --ignore_cache load "lang/Anaconda3/2022.5"
+
+Also make sure that all modulefiles written in TCL start with the string
+#%Module
+
+
+
+/var/spool/slurmd/job9259029/slurm_script: line 23: source: /pc2/groups/hpc-prf-winf4/atao/rl4co: is a directory
+[rank: 0] Seed set to 1234
+/pc2/groups/hpc-prf-winf4/atao/rl4co/lib/python3.11/site-packages/lightning/pytorch/utilities/parsing.py:208: Attribute 'env' is an instance of `nn.Module` and is already saved during checkpointing. It is recommended to ignore them using `self.save_hyperparameters(ignore=['env'])`.
+/pc2/groups/hpc-prf-winf4/atao/rl4co/lib/python3.11/site-packages/lightning/pytorch/utilities/parsing.py:208: Attribute 'policy' is an instance of `nn.Module` and is already saved during checkpointing. It is recommended to ignore them using `self.save_hyperparameters(ignore=['policy'])`.
+Using 16bit Automatic Mixed Precision (AMP)
+Trainer already configured with model summary callbacks: [<class 'lightning.pytorch.callbacks.rich_model_summary.RichModelSummary'>]. Skipping setting a default `ModelSummary` callback.
+GPU available: True (cuda), used: True
+TPU available: False, using: 0 TPU cores
+HPU available: False, using: 0 HPUs
+wandb: W&B API key is configured. Use `wandb login --relogin` to force relogin
+wandb: Tracking run with wandb version 0.17.5
+wandb: Run data is saved locally in /scratch/hpc-prf-winf4/atao/rl4co-self/logs/train/runs/tsp50/am-tsp50/2024-07-25_17-26-42/wandb/run-20240725_172653-ljn6lxll
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run am-tsp50
+wandb: ⭐️ View project at https://wandb.ai/andrew-sy-tao-university-of-california-berkeley/rl4co
+wandb: 🚀 View run at https://wandb.ai/andrew-sy-tao-university-of-california-berkeley/rl4co/runs/ljn6lxll
+LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [0]
+SLURM auto-requeueing enabled. Setting signal handlers.
+/pc2/groups/hpc-prf-winf4/atao/rl4co/lib/python3.11/site-packages/lightning/pytorch/trainer/connectors/data_connector.py:424: The 'val_dataloader' does not have many workers which may be a bottleneck. Consider increasing the value of the `num_workers` argument` to `num_workers=2` in the `DataLoader` to improve performance.
+/pc2/groups/hpc-prf-winf4/atao/rl4co/lib/python3.11/site-packages/lightning/pytorch/trainer/connectors/data_connector.py:424: The 'train_dataloader' does not have many workers which may be a bottleneck. Consider increasing the value of the `num_workers` argument` to `num_workers=2` in the `DataLoader` to improve performance.
+slurmstepd: error: *** JOB 9259029 ON n2dgx01 CANCELLED AT 2024-07-25T17:29:43 ***

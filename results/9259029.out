@@ -1,0 +1,247 @@
+[[36m2024-07-25 17:26:43,025[0m][[34mrl4co.utils.utils[0m][[32mINFO[0m] - Enforcing tags! <cfg.extras.enforce_tags=True>[0m
+[[36m2024-07-25 17:26:43,045[0m][[34mrl4co.utils.utils[0m][[32mINFO[0m] - Printing config tree with Rich! <cfg.extras.print_config=True>[0m
+CONFIG
+├── model
+│   └── generate_default_data: true                                             
+│       metrics:                                                                
+│         train:                                                                
+│         - loss                                                                
+│         - reward                                                              
+│         val:                                                                  
+│         - reward                                                              
+│         test:                                                                 
+│         - reward                                                              
+│         log_on_step: true                                                     
+│       _target_: rl4co.models.AttentionModel                                   
+│       baseline: rollout                                                       
+│       batch_size: 512                                                         
+│       val_batch_size: 1024                                                    
+│       test_batch_size: 1024                                                   
+│       train_data_size: 1280000                                                
+│       val_data_size: 10000                                                    
+│       test_data_size: 10000                                                   
+│       optimizer_kwargs:                                                       
+│         lr: 0.0001                                                            
+│                                                                               
+├── callbacks
+│   └── model_checkpoint:                                                       
+│         _target_: lightning.pytorch.callbacks.ModelCheckpoint                 
+│         dirpath: /scratch/hpc-prf-winf4/atao/rl4co-self/logs/train/runs/tsp50/
+│         filename: epoch_{epoch:03d}                                           
+│         monitor: val/reward                                                   
+│         verbose: false                                                        
+│         save_last: true                                                       
+│         save_top_k: 1                                                         
+│         mode: max                                                             
+│         auto_insert_metric_name: false                                        
+│         save_weights_only: false                                              
+│         every_n_train_steps: null                                             
+│         train_time_interval: null                                             
+│         every_n_epochs: null                                                  
+│         save_on_train_epoch_end: null                                         
+│       model_summary:                                                          
+│         _target_: lightning.pytorch.callbacks.RichModelSummary                
+│         max_depth: 5                                                          
+│       rich_progress_bar:                                                      
+│         _target_: lightning.pytorch.callbacks.RichProgressBar                 
+│       speed_monitor:                                                          
+│         _target_: rl4co.utils.callbacks.speed_monitor.SpeedMonitor            
+│         intra_step_time: true                                                 
+│         inter_step_time: true                                                 
+│         epoch_time: true                                                      
+│       learning_rate_monitor:                                                  
+│         _target_: lightning.pytorch.callbacks.LearningRateMonitor             
+│         logging_interval: epoch                                               
+│                                                                               
+├── logger
+│   └── wandb:                                                                  
+│         _target_: lightning.pytorch.loggers.wandb.WandbLogger                 
+│         save_dir: /scratch/hpc-prf-winf4/atao/rl4co-self/logs/train/runs/tsp50
+│         offline: false                                                        
+│         id: null                                                              
+│         anonymous: null                                                       
+│         project: rl4co                                                        
+│         log_model: false                                                      
+│         prefix: ''                                                            
+│         group: tsp50                                                          
+│         tags:                                                                 
+│         - am                                                                  
+│         - tsp                                                                 
+│         job_type: ''                                                          
+│         name: am-tsp50                                                        
+│                                                                               
+├── trainer
+│   └── _target_: rl4co.utils.trainer.RL4COTrainer                              
+│       default_root_dir: /scratch/hpc-prf-winf4/atao/rl4co-self/logs/train/runs
+│       gradient_clip_val: 1.0                                                  
+│       accelerator: auto                                                       
+│       precision: 16-mixed                                                     
+│       check_val_every_n_epoch: 1                                              
+│       deterministic: false                                                    
+│       max_epochs: 100                                                         
+│                                                                               
+├── paths
+│   └── root_dir: /scratch/hpc-prf-winf4/atao/rl4co-self                        
+│       data_dir: /scratch/hpc-prf-winf4/atao/rl4co-self/data                   
+│       log_dir: /scratch/hpc-prf-winf4/atao/rl4co-self/logs                    
+│       output_dir: /scratch/hpc-prf-winf4/atao/rl4co-self/logs/train/runs/tsp50
+│       work_dir: /scratch/hpc-prf-winf4/atao/rl4co-self                        
+│                                                                               
+├── extras
+│   └── ignore_warnings: false                                                  
+│       enforce_tags: true                                                      
+│       print_config: true                                                      
+│                                                                               
+├── mode
+│   └── train                                                                   
+├── tags
+│   └── ['dev']                                                                 
+├── train
+│   └── True                                                                    
+├── test
+│   └── True                                                                    
+├── compile
+│   └── False                                                                   
+├── ckpt_path
+│   └── None                                                                    
+├── seed
+│   └── 1234                                                                    
+├── matmul_precision
+│   └── medium                                                                  
+└── env
+    └── _target_: rl4co.envs.TSPEnv                                             
+        name: tsp                                                               
+        generator_params:                                                       
+          num_loc: 50                                                           
+          loc_distribution: uniform                                             
+        data_dir: /scratch/hpc-prf-winf4/atao/rl4co-self/data/tsp               
+        val_file: tsp50_val_seed4321.npz                                        
+        test_file: tsp50_test_seed1234.npz                                      
+        check_solution: false                                                   
+                                                                                
+[[36m2024-07-25 17:26:43,101[0m][[34mrl4co.tasks.train[0m][[32mINFO[0m] - Instantiating environment <rl4co.envs.TSPEnv>[0m
+[[36m2024-07-25 17:26:44,021[0m][[34mrl4co.tasks.train[0m][[32mINFO[0m] - Instantiating model <rl4co.models.AttentionModel>[0m
+[[36m2024-07-25 17:26:45,427[0m][[34mrl4co.tasks.train[0m][[32mINFO[0m] - Instantiating callbacks...[0m
+[[36m2024-07-25 17:26:45,428[0m][[34mrl4co.utils.instantiators[0m][[32mINFO[0m] - Instantiating callback <lightning.pytorch.callbacks.ModelCheckpoint>[0m
+[[36m2024-07-25 17:26:45,434[0m][[34mrl4co.utils.instantiators[0m][[32mINFO[0m] - Instantiating callback <lightning.pytorch.callbacks.RichModelSummary>[0m
+[[36m2024-07-25 17:26:45,434[0m][[34mrl4co.utils.instantiators[0m][[32mINFO[0m] - Instantiating callback <lightning.pytorch.callbacks.RichProgressBar>[0m
+[[36m2024-07-25 17:26:45,435[0m][[34mrl4co.utils.instantiators[0m][[32mINFO[0m] - Instantiating callback <rl4co.utils.callbacks.speed_monitor.SpeedMonitor>[0m
+[[36m2024-07-25 17:26:45,438[0m][[34mrl4co.utils.instantiators[0m][[32mINFO[0m] - Instantiating callback <lightning.pytorch.callbacks.LearningRateMonitor>[0m
+[[36m2024-07-25 17:26:45,438[0m][[34mrl4co.tasks.train[0m][[32mINFO[0m] - Instantiating loggers...[0m
+[[36m2024-07-25 17:26:45,438[0m][[34mrl4co.utils.instantiators[0m][[32mINFO[0m] - Instantiating logger <lightning.pytorch.loggers.wandb.WandbLogger>[0m
+[[36m2024-07-25 17:26:45,443[0m][[34mrl4co.tasks.train[0m][[32mINFO[0m] - Instantiating trainer...[0m
+[[36m2024-07-25 17:26:45,473[0m][[34mrl4co.tasks.train[0m][[32mINFO[0m] - Logging hyperparameters![0m
+[[36m2024-07-25 17:26:59,138[0m][[34mrl4co.tasks.train[0m][[32mINFO[0m] - Starting training![0m
+[[36m2024-07-25 17:26:59,356[0m][[34mrl4co.models.rl.common.base[0m][[32mINFO[0m] - Setting up batch sizes for train/val/test[0m
+[[36m2024-07-25 17:26:59,357[0m][[34mrl4co.models.rl.common.base[0m][[32mINFO[0m] - Generating default datasets. If found, they will not be overwritten[0m
+[[36m2024-07-25 17:26:59,363[0m][[34mrl4co.data.generate_data[0m][[32mINFO[0m] - Saving tsp dataset to data/tsp/tsp20_val_seed4321.npz[0m
+[[36m2024-07-25 17:26:59,378[0m][[34mrl4co.data.generate_data[0m][[32mINFO[0m] - Saving tsp dataset to data/tsp/tsp50_val_seed4321.npz[0m
+[[36m2024-07-25 17:26:59,406[0m][[34mrl4co.data.generate_data[0m][[32mINFO[0m] - Saving tsp dataset to data/tsp/tsp100_val_seed4321.npz[0m
+[[36m2024-07-25 17:26:59,436[0m][[34mrl4co.data.generate_data[0m][[32mINFO[0m] - Saving vrp dataset to data/vrp/vrp20_val_seed4321.npz[0m
+[[36m2024-07-25 17:26:59,458[0m][[34mrl4co.data.generate_data[0m][[32mINFO[0m] - Saving vrp dataset to data/vrp/vrp50_val_seed4321.npz[0m
+[[36m2024-07-25 17:26:59,504[0m][[34mrl4co.data.generate_data[0m][[32mINFO[0m] - Saving vrp dataset to data/vrp/vrp100_val_seed4321.npz[0m
+[[36m2024-07-25 17:26:59,580[0m][[34mrl4co.data.generate_data[0m][[32mINFO[0m] - Saving pctsp dataset to data/pctsp/pctsp20_val_seed4321.npz[0m
+[[36m2024-07-25 17:26:59,618[0m][[34mrl4co.data.generate_data[0m][[32mINFO[0m] - Saving pctsp dataset to data/pctsp/pctsp50_val_seed4321.npz[0m
+[[36m2024-07-25 17:26:59,681[0m][[34mrl4co.data.generate_data[0m][[32mINFO[0m] - Saving pctsp dataset to data/pctsp/pctsp100_val_seed4321.npz[0m
+[[36m2024-07-25 17:26:59,711[0m][[34mrl4co.data.generate_data[0m][[32mINFO[0m] - Saving op dataset to data/op/op_const20_val_seed4321.npz[0m
+[[36m2024-07-25 17:26:59,729[0m][[34mrl4co.data.generate_data[0m][[32mINFO[0m] - Saving op dataset to data/op/op_const50_val_seed4321.npz[0m
+[[36m2024-07-25 17:26:59,759[0m][[34mrl4co.data.generate_data[0m][[32mINFO[0m] - Saving op dataset to data/op/op_const100_val_seed4321.npz[0m
+[[36m2024-07-25 17:26:59,781[0m][[34mrl4co.data.generate_data[0m][[32mINFO[0m] - Saving op dataset to data/op/op_unif20_val_seed4321.npz[0m
+[[36m2024-07-25 17:26:59,801[0m][[34mrl4co.data.generate_data[0m][[32mINFO[0m] - Saving op dataset to data/op/op_unif50_val_seed4321.npz[0m
+[[36m2024-07-25 17:26:59,840[0m][[34mrl4co.data.generate_data[0m][[32mINFO[0m] - Saving op dataset to data/op/op_unif100_val_seed4321.npz[0m
+[[36m2024-07-25 17:26:59,866[0m][[34mrl4co.data.generate_data[0m][[32mINFO[0m] - Saving op dataset to data/op/op_dist20_val_seed4321.npz[0m
+[[36m2024-07-25 17:26:59,896[0m][[34mrl4co.data.generate_data[0m][[32mINFO[0m] - Saving op dataset to data/op/op_dist50_val_seed4321.npz[0m
+[[36m2024-07-25 17:26:59,956[0m][[34mrl4co.data.generate_data[0m][[32mINFO[0m] - Saving op dataset to data/op/op_dist100_val_seed4321.npz[0m
+[[36m2024-07-25 17:26:59,984[0m][[34mrl4co.data.generate_data[0m][[32mINFO[0m] - Saving pdp dataset to data/pdp/pdp20_val_seed4321.npz[0m
+[[36m2024-07-25 17:27:00,005[0m][[34mrl4co.data.generate_data[0m][[32mINFO[0m] - Saving pdp dataset to data/pdp/pdp50_val_seed4321.npz[0m
+[[36m2024-07-25 17:27:00,031[0m][[34mrl4co.data.generate_data[0m][[32mINFO[0m] - Saving pdp dataset to data/pdp/pdp100_val_seed4321.npz[0m
+[[36m2024-07-25 17:27:00,048[0m][[34mrl4co.data.generate_data[0m][[32mINFO[0m] - Saving tsp dataset to data/tsp/tsp20_test_seed1234.npz[0m
+[[36m2024-07-25 17:27:00,063[0m][[34mrl4co.data.generate_data[0m][[32mINFO[0m] - Saving tsp dataset to data/tsp/tsp50_test_seed1234.npz[0m
+[[36m2024-07-25 17:27:00,088[0m][[34mrl4co.data.generate_data[0m][[32mINFO[0m] - Saving tsp dataset to data/tsp/tsp100_test_seed1234.npz[0m
+[[36m2024-07-25 17:27:00,105[0m][[34mrl4co.data.generate_data[0m][[32mINFO[0m] - Saving vrp dataset to data/vrp/vrp20_test_seed1234.npz[0m
+[[36m2024-07-25 17:27:00,131[0m][[34mrl4co.data.generate_data[0m][[32mINFO[0m] - Saving vrp dataset to data/vrp/vrp50_test_seed1234.npz[0m
+[[36m2024-07-25 17:27:00,174[0m][[34mrl4co.data.generate_data[0m][[32mINFO[0m] - Saving vrp dataset to data/vrp/vrp100_test_seed1234.npz[0m
+[[36m2024-07-25 17:27:00,205[0m][[34mrl4co.data.generate_data[0m][[32mINFO[0m] - Saving pctsp dataset to data/pctsp/pctsp20_test_seed1234.npz[0m
+[[36m2024-07-25 17:27:00,236[0m][[34mrl4co.data.generate_data[0m][[32mINFO[0m] - Saving pctsp dataset to data/pctsp/pctsp50_test_seed1234.npz[0m
+[[36m2024-07-25 17:27:00,296[0m][[34mrl4co.data.generate_data[0m][[32mINFO[0m] - Saving pctsp dataset to data/pctsp/pctsp100_test_seed1234.npz[0m
+[[36m2024-07-25 17:27:00,323[0m][[34mrl4co.data.generate_data[0m][[32mINFO[0m] - Saving op dataset to data/op/op_const20_test_seed1234.npz[0m
+[[36m2024-07-25 17:27:00,340[0m][[34mrl4co.data.generate_data[0m][[32mINFO[0m] - Saving op dataset to data/op/op_const50_test_seed1234.npz[0m
+[[36m2024-07-25 17:27:00,370[0m][[34mrl4co.data.generate_data[0m][[32mINFO[0m] - Saving op dataset to data/op/op_const100_test_seed1234.npz[0m
+[[36m2024-07-25 17:27:00,396[0m][[34mrl4co.data.generate_data[0m][[32mINFO[0m] - Saving op dataset to data/op/op_unif20_test_seed1234.npz[0m
+[[36m2024-07-25 17:27:00,417[0m][[34mrl4co.data.generate_data[0m][[32mINFO[0m] - Saving op dataset to data/op/op_unif50_test_seed1234.npz[0m
+[[36m2024-07-25 17:27:00,461[0m][[34mrl4co.data.generate_data[0m][[32mINFO[0m] - Saving op dataset to data/op/op_unif100_test_seed1234.npz[0m
+[[36m2024-07-25 17:27:00,487[0m][[34mrl4co.data.generate_data[0m][[32mINFO[0m] - Saving op dataset to data/op/op_dist20_test_seed1234.npz[0m
+[[36m2024-07-25 17:27:00,516[0m][[34mrl4co.data.generate_data[0m][[32mINFO[0m] - Saving op dataset to data/op/op_dist50_test_seed1234.npz[0m
+[[36m2024-07-25 17:27:00,576[0m][[34mrl4co.data.generate_data[0m][[32mINFO[0m] - Saving op dataset to data/op/op_dist100_test_seed1234.npz[0m
+[[36m2024-07-25 17:27:00,640[0m][[34mrl4co.data.generate_data[0m][[32mINFO[0m] - Saving pdp dataset to data/pdp/pdp20_test_seed1234.npz[0m
+[[36m2024-07-25 17:27:00,686[0m][[34mrl4co.data.generate_data[0m][[32mINFO[0m] - Saving pdp dataset to data/pdp/pdp50_test_seed1234.npz[0m
+[[36m2024-07-25 17:27:00,717[0m][[34mrl4co.data.generate_data[0m][[32mINFO[0m] - Saving pdp dataset to data/pdp/pdp100_test_seed1234.npz[0m
+[[36m2024-07-25 17:27:00,728[0m][[34mrl4co.models.rl.common.base[0m][[32mINFO[0m] - Setting up datasets[0m
+[[36m2024-07-25 17:27:08,886[0m][[34mrl4co.envs.common.base[0m][[32mINFO[0m] - Loading val dataset from /scratch/hpc-prf-winf4/atao/rl4co-self/data/tsp/tsp50_val_seed4321.npz[0m
+[[36m2024-07-25 17:27:08,928[0m][[34mrl4co.envs.common.base[0m][[32mINFO[0m] - Loading test dataset from /scratch/hpc-prf-winf4/atao/rl4co-self/data/tsp/tsp50_test_seed1234.npz[0m
+[[36m2024-07-25 17:27:09,336[0m][[34mrl4co.models.rl.reinforce.baselines[0m][[32mINFO[0m] - Creating evaluation dataset for rollout baseline[0m
+[[36m2024-07-25 17:27:09,377[0m][[34mrl4co.models.rl.reinforce.baselines[0m][[32mINFO[0m] - Evaluating baseline policy on evaluation dataset[0m
+[[36m2024-07-25 17:27:13,391[0m][[34mrl4co.models.rl.common.base[0m][[32mINFO[0m] - Instantiating optimizer <Adam>[0m
+┏━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━┳━━━━┳━━━━┓
+┃    ┃ Name                                                     ┃ T… ┃ P… ┃ M… ┃
+┡━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━╇━━━━╇━━━━┩
+│ 0  │ env                                                      │ T… │  0 │ t… │
+│ 1  │ policy                                                   │ A… │ 7… │ t… │
+│    │                                                          │    │  K │    │
+│ 2  │ policy.encoder                                           │ A… │ 5… │ t… │
+│    │                                                          │    │  K │    │
+│ 3  │ policy.encoder.init_embedding                            │ T… │ 3… │ t… │
+│ 4  │ policy.encoder.init_embedding.init_embed                 │ L… │ 3… │ t… │
+│ 5  │ policy.encoder.net                                       │ G… │ 5… │ t… │
+│    │                                                          │    │  K │    │
+│ 6  │ policy.encoder.net.layers                                │ S… │ 5… │ t… │
+│    │                                                          │    │  K │    │
+│ 7  │ policy.encoder.net.layers.0                              │ M… │ 1… │ t… │
+│    │                                                          │    │  K │    │
+│ 8  │ policy.encoder.net.layers.1                              │ M… │ 1… │ t… │
+│    │                                                          │    │  K │    │
+│ 9  │ policy.encoder.net.layers.2                              │ M… │ 1… │ t… │
+│    │                                                          │    │  K │    │
+│ 10 │ policy.decoder                                           │ A… │ 1… │ t… │
+│    │                                                          │    │  K │    │
+│ 11 │ policy.decoder.context_embedding                         │ T… │ 3… │ t… │
+│    │                                                          │    │  K │    │
+│ 12 │ policy.decoder.context_embedding.project_context         │ L… │ 3… │ t… │
+│    │                                                          │    │  K │    │
+│ 13 │ policy.decoder.dynamic_embedding                         │ S… │  0 │ t… │
+│ 14 │ policy.decoder.pointer                                   │ P… │ 1… │ t… │
+│    │                                                          │    │  K │    │
+│ 15 │ policy.decoder.pointer.project_out                       │ L… │ 1… │ t… │
+│    │                                                          │    │  K │    │
+│ 16 │ policy.decoder.project_node_embeddings                   │ L… │ 4… │ t… │
+│    │                                                          │    │  K │    │
+│ 17 │ policy.decoder.project_fixed_context                     │ L… │ 1… │ t… │
+│    │                                                          │    │  K │    │
+│ 18 │ baseline                                                 │ W… │ 7… │ t… │
+│    │                                                          │    │  K │    │
+│ 19 │ baseline.baseline                                        │ R… │ 7… │ t… │
+│    │                                                          │    │  K │    │
+│ 20 │ baseline.baseline.policy                                 │ A… │ 7… │ e… │
+│    │                                                          │    │  K │    │
+│ 21 │ baseline.baseline.policy.encoder                         │ A… │ 5… │ e… │
+│    │                                                          │    │  K │    │
+│ 22 │ baseline.baseline.policy.encoder.init_embedding          │ T… │ 3… │ e… │
+│ 23 │ baseline.baseline.policy.encoder.net                     │ G… │ 5… │ e… │
+│    │                                                          │    │  K │    │
+│ 24 │ baseline.baseline.policy.decoder                         │ A… │ 1… │ e… │
+│    │                                                          │    │  K │    │
+│ 25 │ baseline.baseline.policy.decoder.context_embedding       │ T… │ 3… │ e… │
+│    │                                                          │    │  K │    │
+│ 26 │ baseline.baseline.policy.decoder.dynamic_embedding       │ S… │  0 │ e… │
+│ 27 │ baseline.baseline.policy.decoder.pointer                 │ P… │ 1… │ e… │
+│    │                                                          │    │  K │    │
+│ 28 │ baseline.baseline.policy.decoder.project_node_embeddings │ L… │ 4… │ e… │
+│    │                                                          │    │  K │    │
+│ 29 │ baseline.baseline.policy.decoder.project_fixed_context   │ L… │ 1… │ e… │
+│    │                                                          │    │  K │    │
+│ 30 │ baseline.warmup_baseline                                 │ E… │  0 │ t… │
+└────┴──────────────────────────────────────────────────────────┴────┴────┴────┘
+Trainable params: 1.4 M                                                         
+Non-trainable params: 0                                                         
+Total params: 1.4 M                                                             
+Total estimated model params size (MB): 5                                       

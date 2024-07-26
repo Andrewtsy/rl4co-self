@@ -1,0 +1,300 @@
+[[36m2024-07-25 17:38:35,188[0m][[34mrl4co.utils.utils[0m][[32mINFO[0m] - Enforcing tags! <cfg.extras.enforce_tags=True>[0m
+[[36m2024-07-25 17:38:35,194[0m][[34mrl4co.utils.utils[0m][[32mINFO[0m] - Printing config tree with Rich! <cfg.extras.print_config=True>[0m
+CONFIG
+├── model
+│   └── generate_default_data: true                                             
+│       metrics:                                                                
+│         train:                                                                
+│         - loss                                                                
+│         - reward                                                              
+│         val:                                                                  
+│         - reward                                                              
+│         test:                                                                 
+│         - reward                                                              
+│         log_on_step: true                                                     
+│       _target_: rl4co.models.AttentionModel                                   
+│       baseline: rollout                                                       
+│       batch_size: 512                                                         
+│       val_batch_size: 1024                                                    
+│       test_batch_size: 1024                                                   
+│       train_data_size: 1280000                                                
+│       val_data_size: 10000                                                    
+│       test_data_size: 10000                                                   
+│       optimizer_kwargs:                                                       
+│         lr: 0.0002                                                            
+│         weight_decay: 1.0e-06                                                 
+│       lr_scheduler: MultiStepLR                                               
+│       lr_scheduler_kwargs:                                                    
+│         milestones:                                                           
+│         - 80                                                                  
+│         - 95                                                                  
+│         gamma: 0.1                                                            
+│                                                                               
+├── callbacks
+│   └── model_checkpoint:                                                       
+│         _target_: lightning.pytorch.callbacks.ModelCheckpoint                 
+│         dirpath: /scratch/hpc-prf-winf4/atao/rl4co-self/logs/train/runs/cvrp50
+│         filename: epoch_{epoch:03d}                                           
+│         monitor: val/reward                                                   
+│         verbose: false                                                        
+│         save_last: true                                                       
+│         save_top_k: 1                                                         
+│         mode: max                                                             
+│         auto_insert_metric_name: false                                        
+│         save_weights_only: false                                              
+│         every_n_train_steps: null                                             
+│         train_time_interval: null                                             
+│         every_n_epochs: null                                                  
+│         save_on_train_epoch_end: null                                         
+│       model_summary:                                                          
+│         _target_: lightning.pytorch.callbacks.RichModelSummary                
+│         max_depth: 5                                                          
+│       rich_progress_bar:                                                      
+│         _target_: lightning.pytorch.callbacks.RichProgressBar                 
+│       speed_monitor:                                                          
+│         _target_: rl4co.utils.callbacks.speed_monitor.SpeedMonitor            
+│         intra_step_time: true                                                 
+│         inter_step_time: true                                                 
+│         epoch_time: true                                                      
+│       learning_rate_monitor:                                                  
+│         _target_: lightning.pytorch.callbacks.LearningRateMonitor             
+│         logging_interval: epoch                                               
+│                                                                               
+├── logger
+│   └── wandb:                                                                  
+│         _target_: lightning.pytorch.loggers.wandb.WandbLogger                 
+│         save_dir: /scratch/hpc-prf-winf4/atao/rl4co-self/logs/train/runs/cvrp5
+│         offline: false                                                        
+│         id: null                                                              
+│         anonymous: null                                                       
+│         project: rl4co                                                        
+│         log_model: false                                                      
+│         prefix: ''                                                            
+│         group: cvrp50                                                         
+│         tags:                                                                 
+│         - am                                                                  
+│         - cvrp                                                                
+│         job_type: ''                                                          
+│         name: am-cvrp50                                                       
+│                                                                               
+├── trainer
+│   └── _target_: rl4co.utils.trainer.RL4COTrainer                              
+│       default_root_dir: /scratch/hpc-prf-winf4/atao/rl4co-self/logs/train/runs
+│       gradient_clip_val: 1.0                                                  
+│       accelerator: auto                                                       
+│       precision: 16-mixed                                                     
+│       check_val_every_n_epoch: 1                                              
+│       deterministic: false                                                    
+│       max_epochs: 100                                                         
+│                                                                               
+├── paths
+│   └── root_dir: /scratch/hpc-prf-winf4/atao/rl4co-self                        
+│       data_dir: /scratch/hpc-prf-winf4/atao/rl4co-self/data                   
+│       log_dir: /scratch/hpc-prf-winf4/atao/rl4co-self/logs                    
+│       output_dir: /scratch/hpc-prf-winf4/atao/rl4co-self/logs/train/runs/cvrp5
+│       work_dir: /scratch/hpc-prf-winf4/atao/rl4co-self                        
+│                                                                               
+├── extras
+│   └── ignore_warnings: false                                                  
+│       enforce_tags: true                                                      
+│       print_config: true                                                      
+│                                                                               
+├── mode
+│   └── train                                                                   
+├── tags
+│   └── ['dev']                                                                 
+├── train
+│   └── True                                                                    
+├── test
+│   └── True                                                                    
+├── compile
+│   └── False                                                                   
+├── ckpt_path
+│   └── None                                                                    
+├── seed
+│   └── 1234                                                                    
+├── matmul_precision
+│   └── medium                                                                  
+└── env
+    └── _target_: rl4co.envs.CVRPEnv                                            
+        name: cvrp                                                              
+        generator_params:                                                       
+          num_loc: 50                                                           
+          loc_distribution: uniform                                             
+        data_dir: /scratch/hpc-prf-winf4/atao/rl4co-self/data/vrp               
+        val_file: vrp50_val_seed4321.npz                                        
+        test_file: vrp50_test_seed1234.npz                                      
+                                                                                
+[[36m2024-07-25 17:38:35,258[0m][[34mrl4co.tasks.train[0m][[32mINFO[0m] - Instantiating environment <rl4co.envs.CVRPEnv>[0m
+[[36m2024-07-25 17:38:36,601[0m][[34mrl4co.tasks.train[0m][[32mINFO[0m] - Instantiating model <rl4co.models.AttentionModel>[0m
+[[36m2024-07-25 17:38:38,894[0m][[34mrl4co.tasks.train[0m][[32mINFO[0m] - Instantiating callbacks...[0m
+[[36m2024-07-25 17:38:38,895[0m][[34mrl4co.utils.instantiators[0m][[32mINFO[0m] - Instantiating callback <lightning.pytorch.callbacks.ModelCheckpoint>[0m
+[[36m2024-07-25 17:38:38,900[0m][[34mrl4co.utils.instantiators[0m][[32mINFO[0m] - Instantiating callback <lightning.pytorch.callbacks.RichModelSummary>[0m
+[[36m2024-07-25 17:38:38,900[0m][[34mrl4co.utils.instantiators[0m][[32mINFO[0m] - Instantiating callback <lightning.pytorch.callbacks.RichProgressBar>[0m
+[[36m2024-07-25 17:38:38,901[0m][[34mrl4co.utils.instantiators[0m][[32mINFO[0m] - Instantiating callback <rl4co.utils.callbacks.speed_monitor.SpeedMonitor>[0m
+[[36m2024-07-25 17:38:38,911[0m][[34mrl4co.utils.instantiators[0m][[32mINFO[0m] - Instantiating callback <lightning.pytorch.callbacks.LearningRateMonitor>[0m
+[[36m2024-07-25 17:38:38,911[0m][[34mrl4co.tasks.train[0m][[32mINFO[0m] - Instantiating loggers...[0m
+[[36m2024-07-25 17:38:38,911[0m][[34mrl4co.utils.instantiators[0m][[32mINFO[0m] - Instantiating logger <lightning.pytorch.loggers.wandb.WandbLogger>[0m
+[[36m2024-07-25 17:38:38,916[0m][[34mrl4co.tasks.train[0m][[32mINFO[0m] - Instantiating trainer...[0m
+[[36m2024-07-25 17:38:38,946[0m][[34mrl4co.tasks.train[0m][[32mINFO[0m] - Logging hyperparameters![0m
+[[36m2024-07-25 17:38:47,122[0m][[34mrl4co.tasks.train[0m][[32mINFO[0m] - Starting training![0m
+[[36m2024-07-25 17:38:47,354[0m][[34mrl4co.models.rl.common.base[0m][[32mINFO[0m] - Setting up batch sizes for train/val/test[0m
+[[36m2024-07-25 17:38:47,355[0m][[34mrl4co.models.rl.common.base[0m][[32mINFO[0m] - Generating default datasets. If found, they will not be overwritten[0m
+[[36m2024-07-25 17:38:47,392[0m][[34mrl4co.models.rl.common.base[0m][[32mINFO[0m] - Setting up datasets[0m
+[[36m2024-07-25 17:39:10,803[0m][[34mrl4co.envs.common.base[0m][[32mINFO[0m] - Loading val dataset from /scratch/hpc-prf-winf4/atao/rl4co-self/data/vrp/vrp50_val_seed4321.npz[0m
+[[36m2024-07-25 17:39:10,915[0m][[34mrl4co.envs.common.base[0m][[32mINFO[0m] - Loading test dataset from /scratch/hpc-prf-winf4/atao/rl4co-self/data/vrp/vrp50_test_seed1234.npz[0m
+[[36m2024-07-25 17:39:11,354[0m][[34mrl4co.models.rl.reinforce.baselines[0m][[32mINFO[0m] - Creating evaluation dataset for rollout baseline[0m
+[[36m2024-07-25 17:39:11,463[0m][[34mrl4co.models.rl.reinforce.baselines[0m][[32mINFO[0m] - Evaluating baseline policy on evaluation dataset[0m
+[[36m2024-07-25 17:39:13,839[0m][[34mrl4co.models.rl.common.base[0m][[32mINFO[0m] - Instantiating optimizer <Adam>[0m
+[[36m2024-07-25 17:39:13,840[0m][[34mrl4co.models.rl.common.base[0m][[32mINFO[0m] - Instantiating LR scheduler <MultiStepLR>[0m
+┏━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━┳━━━━┳━━━━┓
+┃    ┃ Name                                                     ┃ T… ┃ P… ┃ M… ┃
+┡━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━╇━━━━╇━━━━┩
+│ 0  │ env                                                      │ C… │  0 │ t… │
+│ 1  │ policy                                                   │ A… │ 6… │ t… │
+│    │                                                          │    │  K │    │
+│ 2  │ policy.encoder                                           │ A… │ 5… │ t… │
+│    │                                                          │    │  K │    │
+│ 3  │ policy.encoder.init_embedding                            │ V… │ 8… │ t… │
+│ 4  │ policy.encoder.init_embedding.init_embed                 │ L… │ 5… │ t… │
+│ 5  │ policy.encoder.init_embedding.init_embed_depot           │ L… │ 3… │ t… │
+│ 6  │ policy.encoder.net                                       │ G… │ 5… │ t… │
+│    │                                                          │    │  K │    │
+│ 7  │ policy.encoder.net.layers                                │ S… │ 5… │ t… │
+│    │                                                          │    │  K │    │
+│ 8  │ policy.encoder.net.layers.0                              │ M… │ 1… │ t… │
+│    │                                                          │    │  K │    │
+│ 9  │ policy.encoder.net.layers.1                              │ M… │ 1… │ t… │
+│    │                                                          │    │  K │    │
+│ 10 │ policy.encoder.net.layers.2                              │ M… │ 1… │ t… │
+│    │                                                          │    │  K │    │
+│ 11 │ policy.decoder                                           │ A… │ 9… │ t… │
+│    │                                                          │    │  K │    │
+│ 12 │ policy.decoder.context_embedding                         │ V… │ 1… │ t… │
+│    │                                                          │    │  K │    │
+│ 13 │ policy.decoder.context_embedding.project_context         │ L… │ 1… │ t… │
+│    │                                                          │    │  K │    │
+│ 14 │ policy.decoder.dynamic_embedding                         │ S… │  0 │ t… │
+│ 15 │ policy.decoder.pointer                                   │ P… │ 1… │ t… │
+│    │                                                          │    │  K │    │
+│ 16 │ policy.decoder.pointer.project_out                       │ L… │ 1… │ t… │
+│    │                                                          │    │  K │    │
+│ 17 │ policy.decoder.project_node_embeddings                   │ L… │ 4… │ t… │
+│    │                                                          │    │  K │    │
+│ 18 │ policy.decoder.project_fixed_context                     │ L… │ 1… │ t… │
+│    │                                                          │    │  K │    │
+│ 19 │ baseline                                                 │ W… │ 6… │ t… │
+│    │                                                          │    │  K │    │
+│ 20 │ baseline.baseline                                        │ R… │ 6… │ t… │
+│    │                                                          │    │  K │    │
+│ 21 │ baseline.baseline.policy                                 │ A… │ 6… │ e… │
+│    │                                                          │    │  K │    │
+│ 22 │ baseline.baseline.policy.encoder                         │ A… │ 5… │ e… │
+│    │                                                          │    │  K │    │
+│ 23 │ baseline.baseline.policy.encoder.init_embedding          │ V… │ 8… │ e… │
+│ 24 │ baseline.baseline.policy.encoder.net                     │ G… │ 5… │ e… │
+│    │                                                          │    │  K │    │
+│ 25 │ baseline.baseline.policy.decoder                         │ A… │ 9… │ e… │
+│    │                                                          │    │  K │    │
+│ 26 │ baseline.baseline.policy.decoder.context_embedding       │ V… │ 1… │ e… │
+│    │                                                          │    │  K │    │
+│ 27 │ baseline.baseline.policy.decoder.dynamic_embedding       │ S… │  0 │ e… │
+│ 28 │ baseline.baseline.policy.decoder.pointer                 │ P… │ 1… │ e… │
+│    │                                                          │    │  K │    │
+│ 29 │ baseline.baseline.policy.decoder.project_node_embeddings │ L… │ 4… │ e… │
+│    │                                                          │    │  K │    │
+│ 30 │ baseline.baseline.policy.decoder.project_fixed_context   │ L… │ 1… │ e… │
+│    │                                                          │    │  K │    │
+│ 31 │ baseline.warmup_baseline                                 │ E… │  0 │ t… │
+└────┴──────────────────────────────────────────────────────────┴────┴────┴────┘
+Trainable params: 1.4 M                                                         
+Non-trainable params: 0                                                         
+Total params: 1.4 M                                                             
+Total estimated model params size (MB): 5                                       
+[[36m2024-07-25 17:45:18,284[0m][[34mrl4co.models.rl.reinforce.baselines[0m][[32mINFO[0m] - Evaluating candidate policy on evaluation dataset[0m
+[[36m2024-07-25 17:45:19,558[0m][[34mrl4co.models.rl.reinforce.baselines[0m][[32mINFO[0m] - Candidate mean: -12.586, Baseline mean: -52.203[0m
+[[36m2024-07-25 17:45:19,573[0m][[34mrl4co.models.rl.reinforce.baselines[0m][[32mINFO[0m] - p-value: 0.000[0m
+[[36m2024-07-25 17:45:19,573[0m][[34mrl4co.models.rl.reinforce.baselines[0m][[32mINFO[0m] - Updating baseline[0m
+[[36m2024-07-25 17:45:19,580[0m][[34mrl4co.models.rl.reinforce.baselines[0m][[32mINFO[0m] - Creating evaluation dataset for rollout baseline[0m
+[[36m2024-07-25 17:45:19,699[0m][[34mrl4co.models.rl.reinforce.baselines[0m][[32mINFO[0m] - Evaluating baseline policy on evaluation dataset[0m
+[[36m2024-07-25 17:45:20,679[0m][[34mrl4co.models.rl.reinforce.baselines[0m][[32mINFO[0m] - Set warmup alpha = 1.0[0m
+[[36m2024-07-25 17:45:20,679[0m][[34mrl4co.models.rl.common.base[0m][[32mINFO[0m] - Generating training dataset for next epoch...[0m
+[[36m2024-07-25 17:54:08,332[0m][[34mrl4co.models.rl.reinforce.baselines[0m][[32mINFO[0m] - Evaluating candidate policy on evaluation dataset[0m
+[[36m2024-07-25 17:54:09,347[0m][[34mrl4co.models.rl.reinforce.baselines[0m][[32mINFO[0m] - Candidate mean: -11.764, Baseline mean: -12.552[0m
+[[36m2024-07-25 17:54:09,351[0m][[34mrl4co.models.rl.reinforce.baselines[0m][[32mINFO[0m] - p-value: 0.000[0m
+[[36m2024-07-25 17:54:09,351[0m][[34mrl4co.models.rl.reinforce.baselines[0m][[32mINFO[0m] - Updating baseline[0m
+[[36m2024-07-25 17:54:09,359[0m][[34mrl4co.models.rl.reinforce.baselines[0m][[32mINFO[0m] - Creating evaluation dataset for rollout baseline[0m
+[[36m2024-07-25 17:54:09,480[0m][[34mrl4co.models.rl.reinforce.baselines[0m][[32mINFO[0m] - Evaluating baseline policy on evaluation dataset[0m
+[[36m2024-07-25 17:54:10,435[0m][[34mrl4co.models.rl.common.base[0m][[32mINFO[0m] - Generating training dataset for next epoch...[0m
+[[36m2024-07-25 18:02:52,453[0m][[34mrl4co.models.rl.reinforce.baselines[0m][[32mINFO[0m] - Evaluating candidate policy on evaluation dataset[0m
+[[36m2024-07-25 18:02:53,412[0m][[34mrl4co.models.rl.reinforce.baselines[0m][[32mINFO[0m] - Candidate mean: -11.499, Baseline mean: -11.794[0m
+[[36m2024-07-25 18:02:53,415[0m][[34mrl4co.models.rl.reinforce.baselines[0m][[32mINFO[0m] - p-value: 0.000[0m
+[[36m2024-07-25 18:02:53,415[0m][[34mrl4co.models.rl.reinforce.baselines[0m][[32mINFO[0m] - Updating baseline[0m
+[[36m2024-07-25 18:02:53,423[0m][[34mrl4co.models.rl.reinforce.baselines[0m][[32mINFO[0m] - Creating evaluation dataset for rollout baseline[0m
+[[36m2024-07-25 18:02:53,546[0m][[34mrl4co.models.rl.reinforce.baselines[0m][[32mINFO[0m] - Evaluating baseline policy on evaluation dataset[0m
+[[36m2024-07-25 18:02:54,497[0m][[34mrl4co.models.rl.common.base[0m][[32mINFO[0m] - Generating training dataset for next epoch...[0m
+[[36m2024-07-25 18:11:34,215[0m][[34mrl4co.models.rl.reinforce.baselines[0m][[32mINFO[0m] - Evaluating candidate policy on evaluation dataset[0m
+[[36m2024-07-25 18:11:35,185[0m][[34mrl4co.models.rl.reinforce.baselines[0m][[32mINFO[0m] - Candidate mean: -11.442, Baseline mean: -11.501[0m
+[[36m2024-07-25 18:11:35,188[0m][[34mrl4co.models.rl.reinforce.baselines[0m][[32mINFO[0m] - p-value: 0.000[0m
+[[36m2024-07-25 18:11:35,188[0m][[34mrl4co.models.rl.reinforce.baselines[0m][[32mINFO[0m] - Updating baseline[0m
+[[36m2024-07-25 18:11:35,196[0m][[34mrl4co.models.rl.reinforce.baselines[0m][[32mINFO[0m] - Creating evaluation dataset for rollout baseline[0m
+[[36m2024-07-25 18:11:35,316[0m][[34mrl4co.models.rl.reinforce.baselines[0m][[32mINFO[0m] - Evaluating baseline policy on evaluation dataset[0m
+[[36m2024-07-25 18:11:36,270[0m][[34mrl4co.models.rl.common.base[0m][[32mINFO[0m] - Generating training dataset for next epoch...[0m
+[[36m2024-07-25 18:20:15,964[0m][[34mrl4co.models.rl.reinforce.baselines[0m][[32mINFO[0m] - Evaluating candidate policy on evaluation dataset[0m
+[[36m2024-07-25 18:20:17,006[0m][[34mrl4co.models.rl.reinforce.baselines[0m][[32mINFO[0m] - Candidate mean: -11.362, Baseline mean: -11.446[0m
+[[36m2024-07-25 18:20:17,009[0m][[34mrl4co.models.rl.reinforce.baselines[0m][[32mINFO[0m] - p-value: 0.000[0m
+[[36m2024-07-25 18:20:17,009[0m][[34mrl4co.models.rl.reinforce.baselines[0m][[32mINFO[0m] - Updating baseline[0m
+[[36m2024-07-25 18:20:17,017[0m][[34mrl4co.models.rl.reinforce.baselines[0m][[32mINFO[0m] - Creating evaluation dataset for rollout baseline[0m
+[[36m2024-07-25 18:20:17,139[0m][[34mrl4co.models.rl.reinforce.baselines[0m][[32mINFO[0m] - Evaluating baseline policy on evaluation dataset[0m
+[[36m2024-07-25 18:20:18,115[0m][[34mrl4co.models.rl.common.base[0m][[32mINFO[0m] - Generating training dataset for next epoch...[0m
+[[36m2024-07-25 18:28:59,576[0m][[34mrl4co.models.rl.reinforce.baselines[0m][[32mINFO[0m] - Evaluating candidate policy on evaluation dataset[0m
+[[36m2024-07-25 18:29:00,560[0m][[34mrl4co.models.rl.reinforce.baselines[0m][[32mINFO[0m] - Candidate mean: -11.328, Baseline mean: -11.356[0m
+[[36m2024-07-25 18:29:00,562[0m][[34mrl4co.models.rl.reinforce.baselines[0m][[32mINFO[0m] - p-value: 0.000[0m
+[[36m2024-07-25 18:29:00,562[0m][[34mrl4co.models.rl.reinforce.baselines[0m][[32mINFO[0m] - Updating baseline[0m
+[[36m2024-07-25 18:29:00,571[0m][[34mrl4co.models.rl.reinforce.baselines[0m][[32mINFO[0m] - Creating evaluation dataset for rollout baseline[0m
+[[36m2024-07-25 18:29:00,694[0m][[34mrl4co.models.rl.reinforce.baselines[0m][[32mINFO[0m] - Evaluating baseline policy on evaluation dataset[0m
+[[36m2024-07-25 18:29:01,638[0m][[34mrl4co.models.rl.common.base[0m][[32mINFO[0m] - Generating training dataset for next epoch...[0m
+[[36m2024-07-25 18:37:40,899[0m][[34mrl4co.models.rl.reinforce.baselines[0m][[32mINFO[0m] - Evaluating candidate policy on evaluation dataset[0m
+[[36m2024-07-25 18:37:42,111[0m][[34mrl4co.models.rl.reinforce.baselines[0m][[32mINFO[0m] - Candidate mean: -11.289, Baseline mean: -11.326[0m
+[[36m2024-07-25 18:37:42,114[0m][[34mrl4co.models.rl.reinforce.baselines[0m][[32mINFO[0m] - p-value: 0.000[0m
+[[36m2024-07-25 18:37:42,114[0m][[34mrl4co.models.rl.reinforce.baselines[0m][[32mINFO[0m] - Updating baseline[0m
+[[36m2024-07-25 18:37:42,123[0m][[34mrl4co.models.rl.reinforce.baselines[0m][[32mINFO[0m] - Creating evaluation dataset for rollout baseline[0m
+[[36m2024-07-25 18:37:42,245[0m][[34mrl4co.models.rl.reinforce.baselines[0m][[32mINFO[0m] - Evaluating baseline policy on evaluation dataset[0m
+[[36m2024-07-25 18:37:43,195[0m][[34mrl4co.models.rl.common.base[0m][[32mINFO[0m] - Generating training dataset for next epoch...[0m
+[[36m2024-07-25 18:46:20,464[0m][[34mrl4co.models.rl.reinforce.baselines[0m][[32mINFO[0m] - Evaluating candidate policy on evaluation dataset[0m
+[[36m2024-07-25 18:46:21,463[0m][[34mrl4co.models.rl.reinforce.baselines[0m][[32mINFO[0m] - Candidate mean: -11.285, Baseline mean: -11.270[0m
+[[36m2024-07-25 18:46:21,463[0m][[34mrl4co.models.rl.common.base[0m][[32mINFO[0m] - Generating training dataset for next epoch...[0m
+[[36m2024-07-25 18:55:03,160[0m][[34mrl4co.models.rl.reinforce.baselines[0m][[32mINFO[0m] - Evaluating candidate policy on evaluation dataset[0m
+[[36m2024-07-25 18:55:04,141[0m][[34mrl4co.models.rl.reinforce.baselines[0m][[32mINFO[0m] - Candidate mean: -11.227, Baseline mean: -11.270[0m
+[[36m2024-07-25 18:55:04,144[0m][[34mrl4co.models.rl.reinforce.baselines[0m][[32mINFO[0m] - p-value: 0.000[0m
+[[36m2024-07-25 18:55:04,144[0m][[34mrl4co.models.rl.reinforce.baselines[0m][[32mINFO[0m] - Updating baseline[0m
+[[36m2024-07-25 18:55:04,151[0m][[34mrl4co.models.rl.reinforce.baselines[0m][[32mINFO[0m] - Creating evaluation dataset for rollout baseline[0m
+[[36m2024-07-25 18:55:04,272[0m][[34mrl4co.models.rl.reinforce.baselines[0m][[32mINFO[0m] - Evaluating baseline policy on evaluation dataset[0m
+[[36m2024-07-25 18:55:05,227[0m][[34mrl4co.models.rl.common.base[0m][[32mINFO[0m] - Generating training dataset for next epoch...[0m
+[[36m2024-07-25 19:03:42,737[0m][[34mrl4co.models.rl.reinforce.baselines[0m][[32mINFO[0m] - Evaluating candidate policy on evaluation dataset[0m
+[[36m2024-07-25 19:03:43,717[0m][[34mrl4co.models.rl.reinforce.baselines[0m][[32mINFO[0m] - Candidate mean: -11.255, Baseline mean: -11.228[0m
+[[36m2024-07-25 19:03:43,717[0m][[34mrl4co.models.rl.common.base[0m][[32mINFO[0m] - Generating training dataset for next epoch...[0m
+[[36m2024-07-25 19:12:22,782[0m][[34mrl4co.models.rl.reinforce.baselines[0m][[32mINFO[0m] - Evaluating candidate policy on evaluation dataset[0m
+[[36m2024-07-25 19:12:23,776[0m][[34mrl4co.models.rl.reinforce.baselines[0m][[32mINFO[0m] - Candidate mean: -11.263, Baseline mean: -11.228[0m
+[[36m2024-07-25 19:12:23,777[0m][[34mrl4co.models.rl.common.base[0m][[32mINFO[0m] - Generating training dataset for next epoch...[0m
+[[36m2024-07-25 19:21:01,329[0m][[34mrl4co.models.rl.reinforce.baselines[0m][[32mINFO[0m] - Evaluating candidate policy on evaluation dataset[0m
+[[36m2024-07-25 19:21:02,339[0m][[34mrl4co.models.rl.reinforce.baselines[0m][[32mINFO[0m] - Candidate mean: -11.199, Baseline mean: -11.228[0m
+[[36m2024-07-25 19:21:02,341[0m][[34mrl4co.models.rl.reinforce.baselines[0m][[32mINFO[0m] - p-value: 0.000[0m
+[[36m2024-07-25 19:21:02,342[0m][[34mrl4co.models.rl.reinforce.baselines[0m][[32mINFO[0m] - Updating baseline[0m
+[[36m2024-07-25 19:21:02,350[0m][[34mrl4co.models.rl.reinforce.baselines[0m][[32mINFO[0m] - Creating evaluation dataset for rollout baseline[0m
+[[36m2024-07-25 19:21:02,470[0m][[34mrl4co.models.rl.reinforce.baselines[0m][[32mINFO[0m] - Evaluating baseline policy on evaluation dataset[0m
+[[36m2024-07-25 19:21:03,420[0m][[34mrl4co.models.rl.common.base[0m][[32mINFO[0m] - Generating training dataset for next epoch...[0m
+[[36m2024-07-25 19:29:43,826[0m][[34mrl4co.models.rl.reinforce.baselines[0m][[32mINFO[0m] - Evaluating candidate policy on evaluation dataset[0m
+[[36m2024-07-25 19:29:44,815[0m][[34mrl4co.models.rl.reinforce.baselines[0m][[32mINFO[0m] - Candidate mean: -11.208, Baseline mean: -11.219[0m
+[[36m2024-07-25 19:29:44,818[0m][[34mrl4co.models.rl.reinforce.baselines[0m][[32mINFO[0m] - p-value: 0.002[0m
+[[36m2024-07-25 19:29:44,818[0m][[34mrl4co.models.rl.reinforce.baselines[0m][[32mINFO[0m] - Updating baseline[0m
+[[36m2024-07-25 19:29:44,826[0m][[34mrl4co.models.rl.reinforce.baselines[0m][[32mINFO[0m] - Creating evaluation dataset for rollout baseline[0m
+[[36m2024-07-25 19:29:44,945[0m][[34mrl4co.models.rl.reinforce.baselines[0m][[32mINFO[0m] - Evaluating baseline policy on evaluation dataset[0m
+[[36m2024-07-25 19:29:45,894[0m][[34mrl4co.models.rl.common.base[0m][[32mINFO[0m] - Generating training dataset for next epoch...[0m
+[[36m2024-07-25 19:38:24,196[0m][[34mrl4co.models.rl.reinforce.baselines[0m][[32mINFO[0m] - Evaluating candidate policy on evaluation dataset[0m
+[[36m2024-07-25 19:38:25,190[0m][[34mrl4co.models.rl.reinforce.baselines[0m][[32mINFO[0m] - Candidate mean: -11.179, Baseline mean: -11.203[0m
+[[36m2024-07-25 19:38:25,192[0m][[34mrl4co.models.rl.reinforce.baselines[0m][[32mINFO[0m] - p-value: 0.000[0m
+[[36m2024-07-25 19:38:25,193[0m][[34mrl4co.models.rl.reinforce.baselines[0m][[32mINFO[0m] - Updating baseline[0m
+[[36m2024-07-25 19:38:25,200[0m][[34mrl4co.models.rl.reinforce.baselines[0m][[32mINFO[0m] - Creating evaluation dataset for rollout baseline[0m
+[[36m2024-07-25 19:38:25,320[0m][[34mrl4co.models.rl.reinforce.baselines[0m][[32mINFO[0m] - Evaluating baseline policy on evaluation dataset[0m
+[[36m2024-07-25 19:38:26,263[0m][[34mrl4co.models.rl.common.base[0m][[32mINFO[0m] - Generating training dataset for next epoch...[0m

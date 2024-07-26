@@ -1,0 +1,16 @@
+cpu-bind=MASK - n2dgx01, task  0  0 [2338800]: mask |B-------|--------||--------|--------||--------|--------||--------|--------||||B-------|--------||--------|--------||--------|--------||--------|--------|  set
+Lmod has detected the following error: The following module(s) are unknown:
+"lang/Anaconda3/2022.5"
+
+Please check the spelling or version number. Also try "module spider ..."
+It is also possible your cache file is out-of-date; it may help to try:
+  $ module --ignore_cache load "lang/Anaconda3/2022.5"
+
+Also make sure that all modulefiles written in TCL start with the string
+#%Module
+
+
+
+/var/spool/slurmd/job9258896/slurm_script: line 23: source: /pc2/groups/hpc-prf-winf4/atao/rl4co: is a directory
+/var/spool/slurmd/job9258896/slurm_script: line 25: 2338853 Killed                  python3 run.py "$@"
+slurmstepd: error: Detected 1 oom_kill event in StepId=9258896.batch. Some of the step tasks have been OOM Killed.

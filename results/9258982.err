@@ -1,0 +1,66 @@
+cpu-bind=MASK - n2dgx01, task  0  0 [2349721]: mask |B-------|--------||--------|--------||--------|--------||--------|--------||||BB------|--------||--------|--------||--------|--------||--------|--------|  set
+Lmod has detected the following error: The following module(s) are unknown:
+"lang/Anaconda3/2022.5"
+
+Please check the spelling or version number. Also try "module spider ..."
+It is also possible your cache file is out-of-date; it may help to try:
+  $ module --ignore_cache load "lang/Anaconda3/2022.5"
+
+Also make sure that all modulefiles written in TCL start with the string
+#%Module
+
+
+
+/var/spool/slurmd/job9258982/slurm_script: line 23: source: /pc2/groups/hpc-prf-winf4/atao/rl4co: is a directory
+[rank: 0] Seed set to 1234
+/pc2/groups/hpc-prf-winf4/atao/rl4co/lib/python3.11/site-packages/lightning/pytorch/utilities/parsing.py:208: Attribute 'env' is an instance of `nn.Module` and is already saved during checkpointing. It is recommended to ignore them using `self.save_hyperparameters(ignore=['env'])`.
+/pc2/groups/hpc-prf-winf4/atao/rl4co/lib/python3.11/site-packages/lightning/pytorch/utilities/parsing.py:208: Attribute 'policy' is an instance of `nn.Module` and is already saved during checkpointing. It is recommended to ignore them using `self.save_hyperparameters(ignore=['policy'])`.
+Using 16bit Automatic Mixed Precision (AMP)
+Trainer already configured with model summary callbacks: [<class 'lightning.pytorch.callbacks.rich_model_summary.RichModelSummary'>]. Skipping setting a default `ModelSummary` callback.
+GPU available: True (cuda), used: True
+TPU available: False, using: 0 TPU cores
+HPU available: False, using: 0 HPUs
+Error executing job with overrides: []
+Traceback (most recent call last):
+  File "/scratch/hpc-prf-winf4/atao/rl4co-self/rl4co/tasks/train.py", line 105, in train
+    metric_dict, _ = run(cfg)
+                     ^^^^^^^^
+  File "/scratch/hpc-prf-winf4/atao/rl4co-self/rl4co/utils/utils.py", line 51, in wrap
+    raise ex
+  File "/scratch/hpc-prf-winf4/atao/rl4co-self/rl4co/utils/utils.py", line 41, in wrap
+    metric_dict, object_dict = task_func(cfg=cfg)
+                               ^^^^^^^^^^^^^^^^^^
+  File "/scratch/hpc-prf-winf4/atao/rl4co-self/rl4co/tasks/train.py", line 69, in run
+    utils.log_hyperparameters(object_dict)
+  File "/pc2/groups/hpc-prf-winf4/atao/rl4co/lib/python3.11/site-packages/lightning_utilities/core/rank_zero.py", line 42, in wrapped_fn
+    return fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^
+  File "/scratch/hpc-prf-winf4/atao/rl4co-self/rl4co/utils/utils.py", line 178, in log_hyperparameters
+    logger.log_hyperparams(hparams)
+  File "/pc2/groups/hpc-prf-winf4/atao/rl4co/lib/python3.11/site-packages/lightning_utilities/core/rank_zero.py", line 42, in wrapped_fn
+    return fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^
+  File "/pc2/groups/hpc-prf-winf4/atao/rl4co/lib/python3.11/site-packages/lightning/pytorch/loggers/wandb.py", line 428, in log_hyperparams
+    self.experiment.config.update(params, allow_val_change=True)
+    ^^^^^^^^^^^^^^^
+  File "/pc2/groups/hpc-prf-winf4/atao/rl4co/lib/python3.11/site-packages/lightning/fabric/loggers/logger.py", line 118, in experiment
+    return fn(self)
+           ^^^^^^^^
+  File "/pc2/groups/hpc-prf-winf4/atao/rl4co/lib/python3.11/site-packages/lightning/pytorch/loggers/wandb.py", line 406, in experiment
+    self._experiment = wandb.init(**self._wandb_init)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/pc2/groups/hpc-prf-winf4/atao/rl4co/lib/python3.11/site-packages/wandb/sdk/wandb_init.py", line 1195, in init
+    wandb._sentry.reraise(e)
+  File "/pc2/groups/hpc-prf-winf4/atao/rl4co/lib/python3.11/site-packages/wandb/analytics/sentry.py", line 155, in reraise
+    raise exc.with_traceback(sys.exc_info()[2])
+  File "/pc2/groups/hpc-prf-winf4/atao/rl4co/lib/python3.11/site-packages/wandb/sdk/wandb_init.py", line 1180, in init
+    wi.setup(kwargs)
+  File "/pc2/groups/hpc-prf-winf4/atao/rl4co/lib/python3.11/site-packages/wandb/sdk/wandb_init.py", line 300, in setup
+    wandb_login._login(
+  File "/pc2/groups/hpc-prf-winf4/atao/rl4co/lib/python3.11/site-packages/wandb/sdk/wandb_login.py", line 346, in _login
+    wlogin.prompt_api_key()
+  File "/pc2/groups/hpc-prf-winf4/atao/rl4co/lib/python3.11/site-packages/wandb/sdk/wandb_login.py", line 280, in prompt_api_key
+    raise UsageError("api_key not configured (no-tty). call " + directive)
+wandb.errors.UsageError: api_key not configured (no-tty). call wandb.login(key=[your_api_key])
+
+Set the environment variable HYDRA_FULL_ERROR=1 for a complete stack trace.

@@ -8,7 +8,8 @@
 #SBATCH -J "decomposition"
 #SBATCH --cpus-per-task=2
 #SBATCH --ntasks-per-node=1
-#SBATCH --mem-per-cpu    4#SBATCH -p gpu
+#SBATCH --mem-per-cpu=4
+#SBATCH -p gpu
 #SBATCH --gres=gpu:a100:1
 #SBATCH -A hpc-prf-winf4gpu
 
@@ -19,4 +20,4 @@ export OMP_NUM_THREADS=1
 module load lang/Anaconda3/2022.5
 source /pc2/groups/hpc-prf-winf4/atao/rl4co
 
-python3 run.py "$@"
+python3 tests/run.py "$@"
