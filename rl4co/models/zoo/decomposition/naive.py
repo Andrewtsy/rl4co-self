@@ -1,6 +1,7 @@
-from typing import Any, Union
+from typing import Any, Union, Optional
 from sklearn.cluster import KMeans
 import torch
+from tensordict.tensordict import TensorDict
 
 from rl4co.envs import RL4COEnvBase
 from rl4co.models.common import ConstructivePolicy
@@ -74,3 +75,60 @@ class BaryCenterDecomp(DecompPolicy):
         """Custom Kmeans implementation that keeps size of clusters roughly the same
         """
         raise NotImplementedError
+    
+class Naive(ConstructivePolicy):
+    """Extremely Naive constructive policy that makes a single tour for every single node in
+    our environment.
+    """
+    def __init__(
+        self,
+        env_name: str = "cvrp",
+    ):
+        super(Naive, self).__init__(None, None, env_name)
+
+    def forward(
+        self,
+        td: TensorDict,
+        env: Optional[Union[str, RL4COEnvBase]] = None,
+        calc_reward: bool = True,
+        return_actions: bool = False,
+        actions=None,
+    ) -> dict:
+        """Forward pass of the policy.
+
+        Args:
+            td: TensorDict containing the environment state
+            env: Environment to use for decoding. If None, the environment is instantiated from `env_name`. Note that
+                it is more efficient to pass an already instantiated environment each time for fine-grained control
+            phase: Phase of the algorithm (train, val, test)
+            calc_reward: Whether to calculate the reward
+            return_actions: Whether to return the actions
+            return_entropy: Whether to return the entropy
+            return_hidden: Whether to return the hidden state
+            return_init_embeds: Whether to return the initial embeddings
+            return_sum_log_likelihood: Whether to return the sum of the log likelihood
+            actions: Actions to use for evaluating the policy.
+                If passed, use these actions instead of sampling from the policy to calculate log likelihood
+            max_steps: Maximum number of decoding steps for sanity check to avoid infinite loops if envs are buggy (i.e. do not reach `done`)
+            decoding_kwargs: Keyword arguments for the decoding strategy. See :class:`rl4co.utils.decoding.DecodingStrategy` for more information.
+
+        Returns:
+            out: Dictionary containing the reward, log likelihood, and optionally the actions and entropy
+        """
+        actions = torch.zeros((td.batch_size[0], td["demand"].shape[1] * 2), dtype=torch.int64)
+        rng = torch.arange(1, td["locs"].shape[1])
+        actions[:, ::2] = rng
+        del rng
+
+        # Output dictionary construction
+        if calc_reward:
+            td.set("reward", env.get_reward(td, actions))
+
+        outdict = {
+            "reward": td["reward"]
+        }
+
+        if return_actions:
+            outdict["actions"] = actions
+
+        return outdict

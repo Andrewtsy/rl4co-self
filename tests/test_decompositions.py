@@ -3,7 +3,7 @@ import importlib
 
 import torch
 from tensordict.tensordict import TensorDict
-from rl4co.models.zoo.decomposition import DECOMP, BaryCenterDecomp, DecompPolicy
+from rl4co.models.zoo.decomposition import DECOMP, BaryCenterDecomp, DecompPolicy, Naive
 from rl4co.envs import CVRPEnv
 
 torch.manual_seed(42)
@@ -16,9 +16,11 @@ model_cls = getattr(model_root, "A2C")
 model_a2c50 = model_cls.load_from_checkpoint(PATH, load_baseline=False)
 model_a2c50 = model_a2c50.to(torch.device("cpu"))
 
+naive_pol = Naive()
+
 td = env.reset(batch_size=[4])
 
-decomp_pol = BaryCenterDecomp(10, policy=model_a2c50.policy, naive_policy=model_a2c50.policy)
+decomp_pol = BaryCenterDecomp(10, policy=model_a2c50.policy, naive_policy=naive_pol)
 sol = decomp_pol(td, env, 8, 0.2, 0.75)
 
 class TestBaryCenter:
@@ -56,6 +58,13 @@ class TestDelegate:
         mask = torch.tensor([[True, True, False, True], [False, False, True, False], 
                              [True, False, True, False], [True, True, True, False]])
         t = DecompPolicy._shift_pad(bs, t, mask)
+        pass
+
+class TestNaive:
+    def test_forward(self):
+        td = env.reset(batch_size=[4])
+        pol = Naive(None, None, env_name="cvrp")
+        sol = pol(td, env, return_actions=True)
         pass
 
 if __name__ == "__main__":

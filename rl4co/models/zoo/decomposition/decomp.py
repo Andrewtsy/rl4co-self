@@ -148,7 +148,9 @@ class DecompPolicy(ImprovementPolicy):
         env.check_solution = True
         env.check_solution_validity(td, sol["actions"])
         print(f"Final Reward improvement: {sol['reward'].mean() - init_reward}")
-        return sol, intermediates
+        if history:
+            return sol, intermediates
+        return sol
 
     def decompose(
         self,
