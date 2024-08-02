@@ -62,7 +62,7 @@ class DecompPolicy(ImprovementPolicy):
         self,
         td: TensorDict = None,
         env: Union[str, RL4COEnvBase] = None,
-        its: int = None,
+        its: int = 1,
         temp: int = 0,
         r: int = 0,
         history: bool = False,
@@ -70,6 +70,8 @@ class DecompPolicy(ImprovementPolicy):
         return_actions: bool = False,
         return_entropy: bool = False,
         return_init_embeds: bool = False,
+        actions=None,
+        **decoding_kwargs,
     ) -> dict:
         """Forward pass of the decomposition policy.
 
@@ -91,7 +93,7 @@ class DecompPolicy(ImprovementPolicy):
         env.check_solution = False
         sol = self.naive_policy(td, env, return_actions=True)
         init_reward = sol["reward"].mean()
-        print(init_reward)
+        # print(init_reward)
         if history:
             intermediates = []
             intermediates.append(sol["reward"])
@@ -99,7 +101,7 @@ class DecompPolicy(ImprovementPolicy):
         # Iterative loop to improve our solution
         # better = 0
         for _ in range(its):
-            print(f"iteration {_}")
+            # print(f"iteration {_}")
             # Decompose our state td and sol tensor into its k subproblems
             # Returned td is reset to prepare for policy
             td, actions = self.decompose(td, env, sol)
@@ -107,7 +109,7 @@ class DecompPolicy(ImprovementPolicy):
             td["action_mask"] = torch.concat((torch.ones((td.batch_size[0], 1), dtype=bool), td["problem_mask"]), dim=1)
                         
             # Apply our constructive policy to each subproblem using parallelization
-            nsol = self.policy(td, env, problem_mask=True, return_actions=True)
+            nsol = self.policy(td, env, problem_mask=True, phase=phase, return_actions=True, **decoding_kwargs)
 
             # Select best solutions
             res = TensorDict({
@@ -143,11 +145,11 @@ class DecompPolicy(ImprovementPolicy):
             sol = self.recompose(td, res)
             if history:
                 intermediates.append(sol["reward"])
-            print(sol["reward"].mean())
+            # print(sol["reward"].mean())
             td = td_base.copy()
         env.check_solution = True
         env.check_solution_validity(td, sol["actions"])
-        print(f"Final Reward improvement: {sol['reward'].mean() - init_reward}")
+        # print(f"Final Reward improvement: {sol['reward'].mean() - init_reward}")
         if history:
             return sol, intermediates
         return sol
@@ -185,6 +187,7 @@ class DecompPolicy(ImprovementPolicy):
     def recompose(self,
                   td: TensorDict = None,
                   sol: dict = None,
+                  log_likelihoods: bool = False
     ) -> TensorDict:
         """ VECTORIZED
         Recomposition pass of the decomposition policy.
@@ -234,7 +237,8 @@ class DecompPolicy(ImprovementPolicy):
         out["actions"] = res
         # Sum the rewards and the log likelihoods
         out["reward"] = sol["reward"].view((bs, self.k)).sum(dim=1)
-        # out["log_likelihood"] = sol["log_likelihood"].view((bs, self.k)).sum(dim=1)
+        if log_likelihoods:
+            out["log_likelihood"] = sol["log_likelihood"].view((bs, self.k)).sum(dim=1)
 
         return out
    

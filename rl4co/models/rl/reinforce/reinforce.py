@@ -208,3 +208,7 @@ class REINFORCE(RL4COLitModule):
             loaded.baseline.load_state_dict(state_dict)
 
         return cast(Self, loaded)
+    
+    # def on_fit_start(self, batch: Any, batch_idx: int) -> Optional[int]:
+    #     print("Hit em with the Hook")
+    #     pass
