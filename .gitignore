@@ -9,6 +9,9 @@
 # Logs
 /logs
 
+# Results
+/results
+
 # checkpoints
 *saved_checkpoints*
 *.ckpt
@@ -58,7 +61,7 @@ MANIFEST
 pip-log.txt
 pip-delete-this-directory.txt
 
-# Unit test / coverage reports
+# nit test / coverage reports
 htmlcov/
 .tox/
 .nox/

@@ -20,9 +20,8 @@ device = torch.device(
         else "cpu"
     )
 )
-print(device)
 
-env = CVRPEnv(generator_params={'num_loc': 100})
+env = CVRPEnv(generator_params={'num_loc': 500})
 
 # td = env.reset(batch_size=[10]).to(device)
 
@@ -46,7 +45,7 @@ policy = AttentionModelPolicy(env_name=env.name,
                               num_heads=8,
                             )
 naive_pol = Naive()
-decomp_pol = BaryCenterDecomp(2, policy=policy, naive_policy=naive_pol).to(device)
+decomp_pol = BaryCenterDecomp(10, policy=policy, naive_policy=naive_pol).to(device)
 
 # model = REINFORCE(env, 
 #                     policy,
@@ -60,17 +59,18 @@ decomp_pol = BaryCenterDecomp(2, policy=policy, naive_policy=naive_pol).to(devic
 model = DECOMP(env,
                policy=decomp_pol,
                baseline='no',
-               batch_size=128,
-               train_data_size=1024,
-               val_data_size=128,
+               batch_size=256,
+               train_data_size=10_000,
+               val_data_size=1_000,
                optimizer_kwargs={"lr": 1e-4}
                )
 
-logger = WandbLogger(project="rl4co", name="am-decomp-train-0")
+logger = WandbLogger(project="rl4co", name="am-decomp-train-500-0")
 
 trainer = RL4COTrainer(
-    max_epochs=10,
+    max_epochs=24,
     logger=logger
 )
 
 trainer.fit(model)
+

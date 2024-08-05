@@ -21,3 +21,5 @@ module load lang/Anaconda3/2022.5
 source /pc2/groups/hpc-prf-winf4/atao/rl4co
 
 python3 tests/run.py "$@"
+
+
