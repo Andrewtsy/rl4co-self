@@ -19,8 +19,8 @@ export MKL_NUM_THREADS=1
 export NUMEXPR_NUM_THREADS=1
 export OMP_NUM_THREADS=1
 
-module load lang/Anaconda3/2022.5
-source activate /pc2/groups/hpc-prf-winf4/atao/rl4co
+# module load lang/Anaconda3/2022.5
+conda activate /pc2/groups/hpc-prf-winf4/atao/rl4co
 
 python3 tests/run.py "$@"
 

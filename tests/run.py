@@ -11,7 +11,6 @@ from rl4co.utils.trainer import RL4COTrainer
 from lightning.pytorch.loggers import WandbLogger
 
 torch.manual_seed(42)
-# device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
 device = torch.device(
     "cuda" if torch.cuda.is_available()
@@ -60,16 +59,20 @@ model = DECOMP(env,
                policy=decomp_pol,
                baseline='no',
                batch_size=256,
-               train_data_size=10_000,
-               val_data_size=1_000,
+               train_data_size=50_000,
+               val_data_size=5_000,
                optimizer_kwargs={"lr": 1e-4}
-               )
+               ).to(device)
 
 logger = WandbLogger(project="rl4co", name="am-decomp-train-500-0")
 
+accel = "gpu" if torch.cuda.is_available() else "cpu"
+
 trainer = RL4COTrainer(
+    accelerator="gpu",
     max_epochs=24,
-    logger=logger
+    logger=logger,
+    log_every_n_steps=25
 )
 
 trainer.fit(model)

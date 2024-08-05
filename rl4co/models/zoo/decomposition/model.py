@@ -58,6 +58,7 @@ class DECOMP(REINFORCE):
             out = self.calculate_loss(td, batch, out)
 
         metrics = self.log_metrics(out, phase, dataloader_idx=dataloader_idx)
+
         return {"loss": out.get("loss", None), **metrics}
         
     def _forward_pass(
