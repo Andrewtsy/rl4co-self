@@ -69,7 +69,7 @@ model = DECOMP(env,
 logger = WandbLogger(project="rl4co", name="am-decomp-train-0")
 
 trainer = RL4COTrainer(
-    max_epochs=10,
+    max_epochs=3,
     logger=logger
 )
 
