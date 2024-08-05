@@ -22,7 +22,7 @@ device = torch.device(
 )
 print(device)
 
-env = CVRPEnv(generator_params={'num_loc': 100})
+env = CVRPEnv(generator_params={'num_loc': 100}).to(device)
 
 # td = env.reset(batch_size=[10]).to(device)
 
@@ -44,8 +44,8 @@ policy = AttentionModelPolicy(env_name=env.name,
                               embed_dim=128,
                               num_encoder_layers=3,
                               num_heads=8,
-                            )
-naive_pol = Naive()
+                            ).to(device)
+naive_pol = Naive().to(device)
 decomp_pol = BaryCenterDecomp(2, policy=policy, naive_policy=naive_pol).to(device)
 
 # model = REINFORCE(env, 
@@ -64,11 +64,20 @@ model = DECOMP(env,
                train_data_size=1024,
                val_data_size=128,
                optimizer_kwargs={"lr": 1e-4}
-               )
+               ).to(device)
 
 logger = WandbLogger(project="rl4co", name="am-decomp-train-0")
 
+accel = str("cuda" if torch.cuda.is_available()
+    else (
+        "mps" if (torch.backends.mps.is_available() and torch.backends.mps.is_built())
+        else "cpu"
+    )
+)
+print(accel)
+
 trainer = RL4COTrainer(
+    accelerator=accel,
     max_epochs=3,
     logger=logger
 )
