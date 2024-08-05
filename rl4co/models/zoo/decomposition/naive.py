@@ -54,7 +54,7 @@ class BaryCenterDecomp(DecompPolicy):
         # Impute padded nan values
         mask = torch.isnan(barycenters)
         means = torch.nanmean(barycenters, dim=1)
-        barycenters = torch.where(mask, means.unsqueeze(1).expand_as(barycenters), barycenters)
+        barycenters = torch.where(mask, means.unsqueeze(1).expand_as(barycenters), barycenters).to("cpu")
 
         for i in range(locs_idx.shape[0]):
             # For each batch, classify each route into subproblems
