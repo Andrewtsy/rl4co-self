@@ -47,8 +47,9 @@ class BaryCenterDecomp(DecompPolicy):
         Returns:
             locs_idx: Tensor of locations by their subproblems
         """
+        device = locs_idx.device
         # USE BATCHING TO PARALLELIZE
-        subproblems = torch.zeros_like(locs_idx)    
+        subproblems = torch.zeros_like(locs_idx, device=device)
 
         # Impute padded nan values
         mask = torch.isnan(barycenters)
@@ -57,7 +58,7 @@ class BaryCenterDecomp(DecompPolicy):
 
         for i in range(locs_idx.shape[0]):
             # For each batch, classify each route into subproblems
-            labels = torch.tensor(self.kmeans.fit_predict(BaryCenterDecomp.no_nan(barycenters[i])))
+            labels = torch.tensor(self.kmeans.fit_predict(BaryCenterDecomp.no_nan(barycenters[i])), device=device)
             for j in range(len(labels)):
                 # For each subproblem, note which nodes belong to them
                 subproblems[i, locs_idx[i] == j] = labels[j]
@@ -115,8 +116,9 @@ class Naive(ConstructivePolicy):
         Returns:
             out: Dictionary containing the reward, log likelihood, and optionally the actions and entropy
         """
-        actions = torch.zeros((td.batch_size[0], td["demand"].shape[1] * 2), dtype=torch.int64)
-        rng = torch.arange(1, td["locs"].shape[1])
+        device = td.device
+        actions = torch.zeros((td.batch_size[0], td["demand"].shape[1] * 2), dtype=torch.int64, device=device)
+        rng = torch.arange(1, td["locs"].shape[1], device=device)
         actions[:, ::2] = rng
         del rng
 

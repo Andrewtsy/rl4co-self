@@ -106,7 +106,7 @@ class DecompPolicy(ImprovementPolicy):
             # Returned td is reset to prepare for policy
             td, actions = self.decompose(td, env, sol)
             td = env.reset(td)
-            td["action_mask"] = torch.concat((torch.ones((td.batch_size[0], 1), dtype=bool), td["problem_mask"]), dim=1)
+            td["action_mask"] = torch.concat((torch.ones((td.batch_size[0], 1), device=td.device, dtype=bool), td["problem_mask"]), dim=1)
                         
             # Apply our constructive policy to each subproblem using parallelization
             nsol = self.policy(td, env, problem_mask=True, phase=phase, return_actions=True, **decoding_kwargs)
@@ -115,10 +115,12 @@ class DecompPolicy(ImprovementPolicy):
             res = TensorDict({
                 "actions": torch.zeros((td.batch_size[0], max(actions.shape[1], nsol["actions"].shape[1])), dtype=torch.int64),
                 "reward": torch.zeros((td.batch_size[0]), dtype=torch.float32)},
-                batch_size=td.batch_size[0]
+                batch_size=td.batch_size[0],
+                device=td.device
             )
             sol = TensorDict({"actions": actions, "reward": env._get_reward(td, actions)},
-                             batch_size=td.batch_size[0])
+                             batch_size=td.batch_size[0],
+                             device=td.device)
             
             # td_copy = td.clone()
             # sol_copy = sol.clone()
@@ -128,7 +130,7 @@ class DecompPolicy(ImprovementPolicy):
             # better += mask.sum()
 
             # Simulated Annealing
-            tmp = torch.rand(mask.shape)
+            tmp = torch.rand(mask.shape, device=td.device)
             mask = mask | (tmp < temp)
             temp = temp * r
 
@@ -203,29 +205,31 @@ class DecompPolicy(ImprovementPolicy):
             and importantly, recomposed actions
         """      
         # Store constants
+        device = td.device
         bs = sol["actions"].shape[0] // self.k
-        actions = torch.cat((sol["actions"], torch.zeros((sol["actions"].shape[0], 1), dtype=torch.int64)), dim=1)
+        actions = torch.cat((sol["actions"], torch.zeros((sol["actions"].shape[0], 1), dtype=torch.int64, device=device)), dim=1)
         idx = td["locs_idx"]
 
         # Recomposed tensor. Importantly, we have not removed padded zeros from them middle of rows yet.
         # The rest of the code is devoted to this
-        combined = torch.gather(torch.cat((torch.zeros((sol["actions"].shape[0], 1), dtype=torch.int64), idx), dim=1), 1, actions)
-        combined = combined.reshape(bs, -1).to(torch.int64)
+        combined = torch.gather(torch.cat((torch.zeros((sol["actions"].shape[0], 1), dtype=torch.int64, device=device), idx), dim=1), 1, actions)
+        combined = combined.reshape(bs, -1)
 
         # Find the mask of all the nodes in the original subproblems we care about
         pad_indices = torch.argmax(torch.cumsum(actions, dim=1), dim=1)
         rows = torch.arange(actions.shape[1]).unsqueeze(0).expand(actions.shape[0], -1)
         mask = rows <= pad_indices.unsqueeze(1) + 1
         mask = mask.reshape(bs, -1)
-        del rows
+        del rows, pad_indices
 
         # Find the row lengths of each subproblem and the row length needed for the final tensor
         row_lengths = mask.sum(dim=1)
         max_length = torch.max(row_lengths)
+        del row_idx
 
         # Make the mask_idx of the places we want to fill in in our resulting tensor
-        res = torch.zeros((bs, max_length), dtype=torch.int64)
-        idx = torch.arange(max_length).expand(bs, max_length)
+        res = torch.zeros((bs, max_length), dtype=torch.int64, device=device)
+        idx = torch.arange(max_length, device=device).expand(bs, max_length)
         mask_idx = (idx < row_lengths.unsqueeze(1))
         del idx
 
@@ -271,25 +275,28 @@ class DecompPolicy(ImprovementPolicy):
 
             # indices stores the index of the actions sorted by node number
             srted, indices = torch.sort(tmp, dim=1)
+            del tmp
             
             # Assign group numbers to each of the ordered nodes
             groups_idx = torch.gather(grps, 1, indices)
             # Mask out the depot nodes at the end of each row and remove padding
             groups_idx = groups_idx * (srted != mx)
             groups_idx = groups_idx[:, :td_locs.shape[1] - 1]
-
+            del indices
 
             # Construct barycenters
             # Find all the group ids and make a mask that divides the nodes by group ids
             grp_names = torch.unique(grps)
             grps = grps * (actions != 0)
             msks = grps.unsqueeze(2) == grp_names
+            del grps, grp_names
             
             # Find barycenters of x and y coordinates
             # Gather the x/y coordinates to their node positions and calculate their group means
             tmp = gather_by_index(td_locs, actions)
             b = tmp.unsqueeze(2) * msks.unsqueeze(3)
             barycenters = b.sum(dim=1) / (b != 0).sum(dim=1)
+            del tmp
 
             return groups_idx, barycenters
     
@@ -310,17 +317,17 @@ class DecompPolicy(ImprovementPolicy):
         Returns:
             td_new: Transformed tensordict with shape k * td.shape[0]
         """
-        # Remove depot node
+        device = td.device
         locs = td["locs"]
         # Set batch and subproblem sizes, as well as maximum node number for zero padding (used later)
         bs, sps, mx = idx.shape[0], idx.shape[1], idx.shape[1] + 1
         # Subproblem divided *map* will map nodes to their original problem indices
-        res = torch.zeros((k * bs, sps), dtype=torch.int64)
+        res = torch.zeros((k * bs, sps), dtype=torch.int64, device=device)
         # Take map of nodes in the original problems to their subproblem rows,
         # Indices of each of the nodes in their original subproblems
         # Scatter them onto a map from subproblems to their original problem indices
-        map_ps = torch.arange(0, k * bs, step=k).unsqueeze(1) + idx
-        problem_indices = torch.arange(1, sps + 1).expand(bs, -1)
+        map_ps = torch.arange(0, k * bs, step=k, device=device).unsqueeze(1) + idx
+        problem_indices = torch.arange(1, sps + 1, device=device).expand(bs, -1)
         res = res.scatter(0, map_ps, problem_indices)
 
         # Remove zero pads
@@ -339,30 +346,30 @@ class DecompPolicy(ImprovementPolicy):
         problem_mask = idx_sp != 0
 
         # Gather location demands
-        rep = torch.cat((torch.zeros(bs * k, 1), torch.repeat_interleave(td["demand"], k, dim=0)), dim=1)
+        rep = torch.cat((torch.zeros((bs * k, 1), device=device), torch.repeat_interleave(td["demand"], k, dim=0)), dim=1)
         demand = torch.gather(rep, 1, idx_sp)
 
         # Subdivide the solution actions
-        rep = torch.cat((torch.zeros(bs, 1), idx + 1), dim=1)
+        rep = torch.cat((torch.zeros((bs, 1), device=device), idx + 1), dim=1)
         actions = torch.gather(rep, 1, sol["actions"])
         del rep
 
         # By using a shift tensor we label the connecting depot nodes as their associated subproblems
         mask = actions == 0
-        shift = torch.full_like(actions, 0)
+        shift = torch.full_like(actions, 0, device=device)
         shift[:, 1:] = actions[:, :-1]
         actions[mask] = shift[mask]
         
         # Delegate the nodes into their respective subproblem rows
         mask = actions != 0
-        res = torch.zeros((k * bs + 1, actions.shape[1]), dtype=torch.int64)
-        map_ps = torch.arange(0, k * bs, step=k, dtype=torch.int64).unsqueeze(1) + actions.to(torch.int64)
+        res = torch.zeros((k * bs + 1, actions.shape[1]), dtype=torch.int64, device=device)
+        map_ps = torch.arange(0, k * bs, step=k, dtype=torch.int64, device=device).unsqueeze(1) + actions.to(torch.int64)
         map_ps = map_ps * mask
         res = res.scatter(0, map_ps, sol["actions"])[1:]
         del map_ps
 
         # By using a shift tensor we shift the unnecessary pads (non depot zeros) to the end of their rows
-        shift = torch.full_like(res, 0)
+        shift = torch.full_like(res, 0, device=device)
         shift[:, 1:] = res[:, :-1]
         mask = shift != res
         res = DecompPolicy._shift_pad(bs * k, res, mask)
@@ -380,17 +387,27 @@ class DecompPolicy(ImprovementPolicy):
                         "depot": torch.repeat_interleave(td["depot"], k, 0),
                         "capacity": torch.repeat_interleave(td["capacity"], k, 0),
                         "locs_idx": idx_sp},
-                        batch_size=bs * k)
+                        batch_size=bs * k,
+                        device=device)
 
         return td, res
     
     @staticmethod
     def _shift_pad(bs, t, mask):
+        """Small helper function that moves all zero pads to the back of each row in tensor t
+        Args:
+            bs: number of rows in tensor t
+            t: tensor
+            mask: mask of all the nonzero elements in t
+        Returns:
+            td_new: Transformed tensordict with shape k * td.shape[0]
+        """
+        device = t.device
         row_lengths = mask.sum(dim=1)
         max_length = torch.max(row_lengths)
 
-        res = torch.zeros((bs, max_length), dtype=torch.int64)
-        idx = torch.arange(max_length).expand(bs, max_length)
+        res = torch.zeros((bs, max_length), dtype=torch.int64, device=device)
+        idx = torch.arange(max_length, device=device).expand(bs, max_length)
         mask_idx = (idx < row_lengths.unsqueeze(1))
         res[mask_idx] = t[mask]
 

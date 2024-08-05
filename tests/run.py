@@ -66,13 +66,19 @@ model = DECOMP(env,
 
 logger = WandbLogger(project="rl4co", name="am-decomp-train-500-0")
 
-accel = "gpu" if torch.cuda.is_available() else "cpu"
+accel = str("cuda" if torch.cuda.is_available()
+    else (
+        "mps" if (torch.backends.mps.is_available() and torch.backends.mps.is_built())
+        else "cpu"
+    )
+)
+print(accel)
 
 trainer = RL4COTrainer(
-    accelerator="gpu",
     max_epochs=24,
     logger=logger,
-    log_every_n_steps=25
+    log_every_n_steps=25,
+    accelerator=accel,
 )
 
 trainer.fit(model)
