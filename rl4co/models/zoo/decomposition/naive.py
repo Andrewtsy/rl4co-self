@@ -49,7 +49,7 @@ class BaryCenterDecomp(DecompPolicy):
         """
         device = locs_idx.device
         # USE BATCHING TO PARALLELIZE
-        subproblems = torch.zeros_like(locs_idx, device=device)
+        subproblems = torch.zeros_like(locs_idx, dtype=torch.int64, device=device)
 
         # Impute padded nan values
         mask = torch.isnan(barycenters)
@@ -58,7 +58,7 @@ class BaryCenterDecomp(DecompPolicy):
 
         for i in range(locs_idx.shape[0]):
             # For each batch, classify each route into subproblems
-            labels = torch.tensor(self.kmeans.fit_predict(BaryCenterDecomp.no_nan(barycenters[i])), device=device)
+            labels = torch.tensor(self.kmeans.fit_predict(BaryCenterDecomp.no_nan(barycenters[i])), dtype=torch.int64, device=device)
             for j in range(len(labels)):
                 # For each subproblem, note which nodes belong to them
                 subproblems[i, locs_idx[i] == j] = labels[j]

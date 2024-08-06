@@ -85,6 +85,7 @@ class DECOMP(REINFORCE):
         Returns:
             out: Dictionary containing actions, reward
         """
+        device = td.device
         # Cache copy of our state dictionary to assist recomposition.
         td_base = td.copy()
         # Generate initial solution using our naive policy
@@ -96,7 +97,7 @@ class DECOMP(REINFORCE):
         # Returned td is reset to prepare for policy
         td, actions = self.policy.decompose(td, env, sol)
         td = env.reset(td)
-        td["action_mask"] = torch.concat((torch.ones((td.batch_size[0], 1), dtype=bool), td["problem_mask"]), dim=1)
+        td["action_mask"] = torch.concat((torch.ones((td.batch_size[0], 1), dtype=bool, device=device), td["problem_mask"]), dim=1)
                     
         # Apply our constructive policy to each subproblem using parallelization
         nsol = self.policy.policy(td, env, problem_mask=True, phase=phase, return_actions=True, **decoding_kwargs)
