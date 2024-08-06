@@ -217,7 +217,7 @@ class DecompPolicy(ImprovementPolicy):
 
         # Find the mask of all the nodes in the original subproblems we care about
         pad_indices = torch.argmax(torch.cumsum(actions, dim=1), dim=1)
-        rows = torch.arange(actions.shape[1]).unsqueeze(0).expand(actions.shape[0], -1)
+        rows = torch.arange(actions.shape[1], device=device).unsqueeze(0).expand(actions.shape[0], -1)
         mask = rows <= pad_indices.unsqueeze(1) + 1
         mask = mask.reshape(bs, -1)
         del rows, pad_indices
@@ -225,7 +225,6 @@ class DecompPolicy(ImprovementPolicy):
         # Find the row lengths of each subproblem and the row length needed for the final tensor
         row_lengths = mask.sum(dim=1)
         max_length = torch.max(row_lengths)
-        del row_idx
 
         # Make the mask_idx of the places we want to fill in in our resulting tensor
         res = torch.zeros((bs, max_length), dtype=torch.int64, device=device)
