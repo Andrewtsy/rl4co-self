@@ -3,68 +3,14 @@ import importlib
 import time
 import csv
 
-from rl4co.models import AttentionModelPolicy
 from rl4co.envs import CVRPEnv
-from rl4co.models.zoo.decomposition import DECOMP, BaryCenterDecomp, Naive
 from rl4co.models import REINFORCE
+from rl4co.models import AttentionModelPolicy, PolyNet
+from rl4co.models.zoo.decomposition import DECOMP, BaryCenterDecomp, Naive
 from rl4co.utils.trainer import RL4COTrainer
 from lightning.pytorch.loggers import WandbLogger
 
 torch.manual_seed(42)
-
-device = torch.device(
-    "cuda" if torch.cuda.is_available()
-    else (
-        "mps" if (torch.backends.mps.is_available() and torch.backends.mps.is_built())
-        else "cpu"
-    )
-)
-
-env = CVRPEnv(generator_params={'num_loc': 500})
-
-# td = env.reset(batch_size=[10]).to(device)
-
-# PATH = "checkpoints/am-a2c-cvrp50.ckpt"
-# model_root = importlib.import_module("rl4co.models.rl")
-# model_cls = getattr(model_root, "A2C")
-# model_a2c50 = model_cls.load_from_checkpoint(PATH, load_baseline=False)
-# model_a2c50 = model_a2c50
-# policy = model_a2c50.policy.to(device)
-
-# PATH = "checkpoints/am_cvrp50_2024_7_25.ckpt"
-# model_root = importlib.import_module("rl4co.models")
-# model_cls = getattr(model_root, "AttentionModel")
-# model_am = model_cls.load_from_checkpoint(PATH, load_baseline=False)
-# policy = model_am.policy.to(device)
-# naive_pol = Naive()
-
-policy = AttentionModelPolicy(env_name=env.name, 
-                              embed_dim=128,
-                              num_encoder_layers=3,
-                              num_heads=8,
-                            )
-naive_pol = Naive()
-decomp_pol = BaryCenterDecomp(10, policy=policy, naive_policy=naive_pol).to(device)
-
-# model = REINFORCE(env, 
-#                     policy,
-#                     baseline="rollout",
-#                     batch_size=128,
-#                     train_data_size=512,
-#                     val_data_size=128,
-#                     optimizer_kwargs={"lr": 1e-4},
-#                     ) 
-
-model = DECOMP(env,
-               policy=decomp_pol,
-               baseline='no',
-               batch_size=256,
-               train_data_size=50_000,
-               val_data_size=5_000,
-               optimizer_kwargs={"lr": 1e-4}
-               ).to(device)
-
-logger = WandbLogger(project="rl4co", name="am-decomp-train-500-0")
 
 accel = str("cuda" if torch.cuda.is_available()
     else (
@@ -72,13 +18,46 @@ accel = str("cuda" if torch.cuda.is_available()
         else "cpu"
     )
 )
-print(accel)
+
+device = torch.device(accel)
+print(device)
+
+env = CVRPEnv(generator_params={'num_loc': 500}).to(device)
+
+# td = env.reset(batch_size=[10]).to(device)
+
+policy = AttentionModelPolicy(env_name=env.name, 
+                              embed_dim=128,
+                              num_encoder_layers=6,
+                              num_heads=8,
+                            ).to(device)
+naive_pol = Naive().to(device)
+decomp_pol = BaryCenterDecomp(8, policy=policy, naive_policy=naive_pol).to(device)
+
+model = DECOMP(env,
+               policy=decomp_pol,
+               baseline='mean',
+               batch_size=64,
+               train_data_size=50_000,
+               val_data_size=5_000,
+               optimizer_kwargs={"lr": 1e-4}
+               ).to(device)
+
+# model = PolyNet(env,
+#                 k=8,
+#                 val_num_solutions=16,
+#                 batch_size=64,
+#                 train_data_size=50_000,
+#                 val_data_size=5_000,
+#                 optimizer_kwargs={"lr": 1e-4}).to(device)
+
+logger = WandbLogger(project="rl4co", name="am-decomp-train-1")
 
 trainer = RL4COTrainer(
-    max_epochs=24,
+    max_epochs=8,
     logger=logger,
-    log_every_n_steps=25,
-    accelerator=accel,
+    log_every_n_steps=20,
+    accelerator=accel
 )
 
 trainer.fit(model)
