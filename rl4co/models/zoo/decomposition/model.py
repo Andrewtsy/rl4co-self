@@ -1,5 +1,6 @@
 from typing import Any, Union
 import torch
+from torch.optim.optimizer import Optimizer
 from tensordict.tensordict import TensorDict
 
 from rl4co.utils.lightning import get_lightning_device
@@ -22,6 +23,9 @@ class DECOMP(REINFORCE):
         policy_kwargs: Keyword arguments for policy
         decomp_pol: Policy to decompose/recompose the environment states
         baseline: Baseline to use for the algorithm.
+        its: Number of iterations of the improvement policy
+        temp: Probability of accepting worse solution in simulated annealing (starting temperature)
+        r: Decay rate
         **kwargs: Keyword arguments passed to the superclass
     """
 
@@ -30,10 +34,13 @@ class DECOMP(REINFORCE):
         env: RL4COEnvBase,
         policy: ImprovementPolicy = None,
         policy_kwargs={},
-        baseline: str = "shared",
+        baseline: str = "mean",
+        its: int = 1,
+        temp: int = 0,
+        r: int = 0,
         **kwargs,
     ):
-        
+        self.its, self.temp, self.r = its, temp, r
         # Set default decomposition policy to barycenter clustering technique from 
         # Santini et al. (Decomposition strategies for vehicle routing heuristics)
         if policy is None:
@@ -50,12 +57,9 @@ class DECOMP(REINFORCE):
         self, batch: Any, batch_idx: int, phase: str, dataloader_idx: int = None
     ):
         td = self.env.reset(batch)
+
         # Perform forward pass (i.e., constructing solution and computing log-likelihoods)
         out = self._forward_pass(td, self.env, phase=phase)
-
-        # Compute loss
-        if phase == "train":
-            out = self.calculate_loss(td, batch, out)
 
         metrics = self.log_metrics(out, phase, dataloader_idx=dataloader_idx)
 
@@ -65,6 +69,7 @@ class DECOMP(REINFORCE):
         self,
         td: TensorDict = None,
         env: Union[str, RL4COEnvBase] = None,
+        batch: TensorDict = None,
         phase: str = "train",
         return_actions: bool = False,
         return_entropy: bool = False,
@@ -88,21 +93,38 @@ class DECOMP(REINFORCE):
         device = td.device
         # Cache copy of our state dictionary to assist recomposition.
         td_base = td.copy()
+        if batch is None:
+            batch = td
         # Generate initial solution using our naive policy
         # Refrain from checking solution validity until the end of the evaluation
         env.check_solution = False
         sol = self.policy.naive_policy(td, env, return_actions=True)
 
-        # Decompose our state td and sol tensor into its k subproblems
-        # Returned td is reset to prepare for policy
-        td, actions = self.policy.decompose(td, env, sol)
-        td = env.reset(td)
-        td["action_mask"] = torch.concat((torch.ones((td.batch_size[0], 1), dtype=bool, device=device), td["problem_mask"]), dim=1)
-                    
-        # Apply our constructive policy to each subproblem using parallelization
-        nsol = self.policy.policy(td, env, problem_mask=True, phase=phase, return_actions=True, **decoding_kwargs)
-        nsol = self.policy.recompose(td, nsol, log_likelihoods=True)
-        return nsol
+        for _ in range(self.its):
+            # Decompose our state td and sol tensor into its k subproblems
+            # Returned td is reset to prepare for policy
+            td, actions = self.policy.decompose(td, env, sol)
+            td = env.reset(td)
+            td["action_mask"] = torch.concat((torch.ones((td.batch_size[0], 1), dtype=bool, device=device), td["problem_mask"]), dim=1)
+
+            # Apply our constructive policy to each subproblem using parallelization
+            out = self.policy.policy(td, env, problem_mask=True, phase=phase, return_actions=True, **decoding_kwargs)
+
+            if phase == "train":
+                batch.pop("extra", None)
+                out = self.calculate_loss(td, batch, out)
+                out["loss"].backward()
+
+            out = self.policy.recompose(td, out, phase=phase, log_likelihoods=True)
+            return out
+
+    def backward(
+        self, trainer, loss: torch.Tensor = None, optimizer: Optimizer = None, optimizer_idx: int = None
+    ) -> None:
+        """
+        Override backward.
+        """
+        pass
 
     # def post_setup_hook(self, stage="fit"):
     #     # Make baseline taking model itself and train_dataloader from model as input

@@ -16,6 +16,9 @@ class DecompPolicy(ImprovementPolicy):
         policy_kwargs: Keyword arguments
         naive_policy: Constructive policy to generate initial solution. Should be highly efficient.
         naive_policy_kwargs: Keyword arguments
+        its: Number of iterations of the improvement policy
+        temp: Probability of accepting worse solution in simulated annealing (starting temperature)
+        r: Decay rate
         """
     
     def __init__(
@@ -25,7 +28,10 @@ class DecompPolicy(ImprovementPolicy):
         policy: ConstructivePolicy = None,
         policy_kwargs: dict = {},
         naive_policy: ConstructivePolicy = None,
-        naive_policy_kwargs: dict = {}
+        naive_policy_kwargs: dict = {},
+        its: int = 1,
+        temp: int = 0,
+        r: int = 0,
     ):
         super().__init__()
 
@@ -49,6 +55,7 @@ class DecompPolicy(ImprovementPolicy):
             naive_policy_kwargs_with_defaults.update(naive_policy_kwargs)
             naive_policy = AttentionModelPolicy(env_name=env_name, **naive_policy_kwargs)
 
+        self.its, self.temp, self.r = its, temp, r
         self.k = num_subproblems
         self.env_name = env_name
         self.policy = policy
@@ -62,11 +69,8 @@ class DecompPolicy(ImprovementPolicy):
         self,
         td: TensorDict = None,
         env: Union[str, RL4COEnvBase] = None,
-        its: int = 1,
-        temp: int = 0,
-        r: int = 0,
         history: bool = False,
-        phase: str = "train",
+        phase: str = "test",
         return_actions: bool = False,
         return_entropy: bool = False,
         return_init_embeds: bool = False,
@@ -79,9 +83,6 @@ class DecompPolicy(ImprovementPolicy):
             td: Tensordict state
             env: Environment our states are in
             sol: Dictionary of current best solution
-            its: Number of iterations of the improvement policy
-            temp: Probability of accepting worse solution in simulated annealing (starting temperature)
-            r: Decay rate
             history: return list of iteration rewards?
         Returns:
             out: Dictionary containing actions, reward
@@ -100,7 +101,7 @@ class DecompPolicy(ImprovementPolicy):
         # print(sol["reward"])
         # Iterative loop to improve our solution
         # better = 0
-        for _ in range(its):
+        for _ in range(self.its):
             # print(f"iteration {_}")
             # Decompose our state td and sol tensor into its k subproblems
             # Returned td is reset to prepare for policy
@@ -131,8 +132,8 @@ class DecompPolicy(ImprovementPolicy):
 
             # Simulated Annealing
             tmp = torch.rand(mask.shape, device=td.device)
-            mask = mask | (tmp < temp)
-            temp = temp * r
+            mask = mask | (tmp < self.temp)
+            self.temp = self.temp * self.r
 
             res["actions"][mask, :nsol["actions"].shape[1]] = nsol["actions"][mask, :]
             res["actions"][~mask, :sol["actions"].shape[1]] = sol["actions"][~mask, :]
@@ -144,7 +145,7 @@ class DecompPolicy(ImprovementPolicy):
             # To save complexity at the cost of some memory, we use our cached state td
             # sol_copy = res.clone()
             
-            sol = self.recompose(td, res)
+            sol = self.recompose(td, res, phase=phase)
             if history:
                 intermediates.append(sol["reward"])
             # print(sol["reward"].mean())
@@ -189,6 +190,7 @@ class DecompPolicy(ImprovementPolicy):
     def recompose(self,
                   td: TensorDict = None,
                   sol: dict = None,
+                  phase: str = "train",
                   log_likelihoods: bool = False
     ) -> TensorDict:
         """ VECTORIZED
@@ -240,8 +242,10 @@ class DecompPolicy(ImprovementPolicy):
         out["actions"] = res
         # Sum the rewards and the log likelihoods
         out["reward"] = sol["reward"].view((bs, self.k)).sum(dim=1)
-        if log_likelihoods:
-            out["log_likelihood"] = sol["log_likelihood"].view((bs, self.k)).sum(dim=1)
+        if phase == "train":
+            out["loss"] = sol["loss"]
+        # if log_likelihoods:
+        #     out["log_likelihood"] = sol["log_likelihood"].view((bs, self.k)).sum(dim=1)
 
         return out
    

@@ -22,42 +22,42 @@ accel = str("cuda" if torch.cuda.is_available()
 device = torch.device(accel)
 print(device)
 
-env = CVRPEnv(generator_params={'num_loc': 500}).to(device)
+env = CVRPEnv(generator_params={'num_loc': 150}).to(device)
 
 # td = env.reset(batch_size=[10]).to(device)
 
-# policy = AttentionModelPolicy(env_name=env.name, 
-#                               embed_dim=128,
-#                               num_encoder_layers=6,
-#                               num_heads=8,
-#                             ).to(device)
-# naive_pol = Naive().to(device)
-# decomp_pol = BaryCenterDecomp(2, policy=policy, naive_policy=naive_pol).to(device)
+policy = AttentionModelPolicy(env_name=env.name, 
+                              embed_dim=128,
+                              num_encoder_layers=6,
+                              num_heads=8,
+                            ).to(device)
+naive_pol = Naive().to(device)
+decomp_pol = BaryCenterDecomp(3, policy=policy, naive_policy=naive_pol).to(device)
 
-# model = DECOMP(env,
-#                policy=decomp_pol,
-#                baseline='no',
-#                batch_size=128,
-#                train_data_size=1024,
-#                val_data_size=128,
-#                optimizer_kwargs={"lr": 1e-4}
-#                ).to(device)
+model = DECOMP(env,
+               policy=decomp_pol,
+               baseline="rollout",
+               batch_size=64,
+               train_data_size=128,
+               val_data_size=64,
+               optimizer_kwargs={"lr": 1e-4}
+               ).to(device)
 
-model = PolyNet(env,
-                k=8,
-                val_num_solutions=16,
-                batch_size=64,
-                train_data_size=50_000,
-                val_data_size=5_000,
-                optimizer_kwargs={"lr": 1e-4}).to(device)
+# model = PolyNet(env,
+#                 k=10,
+#                 val_num_solutions=16,
+#                 batch_size=64,
+#                 train_data_size=1_000,
+#                 val_data_size=500,
+#                 optimizer_kwargs={"lr": 1e-4}).to(device)
 
-logger = WandbLogger(project="rl4co", name="polynet-train-0")
+# logger = WandbLogger(project="rl4co", name="polynet-train-0")
 
 trainer = RL4COTrainer(
-    max_epochs=24,
-    logger=logger,
-    log_every_n_steps=20,
-    accelerator=accel
+    max_epochs=8,
+#     logger=logger,
+#     log_every_n_steps=20,
+    accelerator="cpu"
 )
 
 trainer.fit(model)
