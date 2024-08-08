@@ -32,14 +32,14 @@ policy = AttentionModelPolicy(env_name=env.name,
                               num_heads=8,
                             ).to(device)
 naive_pol = Naive().to(device)
-decomp_pol = BaryCenterDecomp(8, policy=policy, naive_policy=naive_pol).to(device)
+decomp_pol = BaryCenterDecomp(10, policy=policy, naive_policy=naive_pol).to(device)
 
 model = DECOMP(env,
                policy=decomp_pol,
-               baseline='mean',
+               baseline="rollout",
                batch_size=64,
-               train_data_size=50_000,
-               val_data_size=5_000,
+               train_data_size=10_000,
+               val_data_size=1_000,
                optimizer_kwargs={"lr": 1e-4}
                ).to(device)
 
@@ -51,7 +51,7 @@ model = DECOMP(env,
 #                 val_data_size=5_000,
 #                 optimizer_kwargs={"lr": 1e-4}).to(device)
 
-logger = WandbLogger(project="rl4co", name="am-decomp-train-1")
+logger = WandbLogger(project="rl4co", name="am-decomp-train-2")
 
 trainer = RL4COTrainer(
     max_epochs=8,
