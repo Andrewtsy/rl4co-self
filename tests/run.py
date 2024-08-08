@@ -26,10 +26,12 @@ env = CVRPEnv(generator_params={'num_loc': 150}).to(device)
 
 # td = env.reset(batch_size=[10]).to(device)
 
+policy_params = {"its": 4, "temp": 0.1, "r": 0.9}
 policy = AttentionModelPolicy(env_name=env.name, 
                               embed_dim=128,
                               num_encoder_layers=6,
                               num_heads=8,
+                              **policy_params
                             ).to(device)
 naive_pol = Naive().to(device)
 decomp_pol = BaryCenterDecomp(3, policy=policy, naive_policy=naive_pol).to(device)
@@ -40,7 +42,8 @@ model = DECOMP(env,
                batch_size=64,
                train_data_size=128,
                val_data_size=64,
-               optimizer_kwargs={"lr": 1e-4}
+               optimizer_kwargs={"lr": 1e-4},
+               **policy_params
                ).to(device)
 
 # model = PolyNet(env,
@@ -54,7 +57,7 @@ model = DECOMP(env,
 # logger = WandbLogger(project="rl4co", name="polynet-train-0")
 
 trainer = RL4COTrainer(
-    max_epochs=8,
+    max_epochs=4,
 #     logger=logger,
 #     log_every_n_steps=20,
     accelerator="cpu"
