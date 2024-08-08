@@ -46,6 +46,15 @@ model = DECOMP(env,
                **policy_params
                ).to(device)
 
+# model = REINFORCE(env,
+#                policy=policy,
+#                baseline="rollout",
+#                batch_size=64,
+#                train_data_size=128,
+#                val_data_size=64,
+#                optimizer_kwargs={"lr": 1e-4},
+#                ).to(device)
+
 # model = PolyNet(env,
 #                 k=10,
 #                 val_num_solutions=16,
@@ -60,6 +69,7 @@ trainer = RL4COTrainer(
     max_epochs=4,
 #     logger=logger,
 #     log_every_n_steps=20,
+    precision=32,
     accelerator="cpu"
 )
 

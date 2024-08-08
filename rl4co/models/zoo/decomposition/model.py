@@ -52,18 +52,49 @@ class DECOMP(REINFORCE):
         else:
             policy = policy
         super().__init__(env, policy, baseline, **kwargs)
+        self.automatic_optimization = False # Manual custom optimization
 
     def shared_step(
         self, batch: Any, batch_idx: int, phase: str, dataloader_idx: int = None
     ):
         td = self.env.reset(batch)
+        device = td.device
+        # Cache copy of our state dictionary to assist recomposition.
+        td_base = td.copy()
+        if batch is None: batch = td
 
-        # Perform forward pass (i.e., constructing solution and computing log-likelihoods)
-        out = self._forward_pass(td, self.env, phase=phase)
+        if phase == 'train':
+            opt = self.optimizers()
+            # Generate initial solution using our naive policy
+            # Refrain from checking solution validity until the end of the evaluation
+            sol = self.policy.naive_policy(td, self.env, return_actions=True)
 
-        metrics = self.log_metrics(out, phase, dataloader_idx=dataloader_idx)
+            for _ in range(self.its):
+                # Decompose our state td and sol tensor into its k subproblems
+                # Returned td is reset to prepare for policy
+                self.env.check_solution = False
+                td, actions = self.policy.decompose(td, self.env, sol)
+                td = self.env.reset(td)
+                td["action_mask"] = torch.concat((torch.ones((td.batch_size[0], 1), dtype=bool, device=device), td["problem_mask"]), dim=1)
 
-        return {"loss": out.get("loss", None), **metrics}
+                # Apply our constructive policy to each subproblem using parallelization
+                sol = self.policy.policy(td, self.env, problem_mask=True, phase=phase, return_actions=True)
+                sol = self.calculate_loss(td, batch.exclude("extra"), sol)
+
+                self.manual_backward(sol["loss"])
+
+                sol = self.policy.recompose(td, sol, phase=phase, log_likelihoods=True)
+                td = td_base.copy()
+
+            self.clip_gradients(opt, gradient_clip_algorithm="norm")
+            self.env.check_solution = True
+        
+        else:
+            sol = self.policy(td, self.env, phase=phase)
+
+        metrics = self.log_metrics(sol, phase, dataloader_idx=dataloader_idx)
+
+        return {"loss": sol.get("loss", None), **metrics}
         
     def _forward_pass(
         self,
@@ -111,7 +142,8 @@ class DECOMP(REINFORCE):
             out = self.policy.policy(td, env, problem_mask=True, phase=phase, return_actions=True, **decoding_kwargs)
 
             if phase == "train":
-                batch.pop("extra", None)
+                opt = self.optimizers()
+                batch.drop("extra", None)
                 out = self.calculate_loss(td, batch, out)
                 out["loss"].backward()
 
