@@ -22,26 +22,26 @@ accel = str("cuda" if torch.cuda.is_available()
 device = torch.device(accel)
 print(device)
 
-env = CVRPEnv(generator_params={'num_loc': 150}).to(device)
+env = CVRPEnv(generator_params={'num_loc': 500}).to(device)
 
 # td = env.reset(batch_size=[10]).to(device)
 
-policy_params = {"its": 4, "temp": 0.1, "r": 0.9}
+policy_params = {"its": 8, "temp": 0.1, "r": 0.9}
 policy = AttentionModelPolicy(env_name=env.name, 
                               embed_dim=128,
-                              num_encoder_layers=6,
+                              num_encoder_layers=3,
                               num_heads=8,
                               **policy_params
                             ).to(device)
 naive_pol = Naive().to(device)
-decomp_pol = BaryCenterDecomp(3, policy=policy, naive_policy=naive_pol).to(device)
+decomp_pol = BaryCenterDecomp(10, policy=policy, naive_policy=naive_pol).to(device)
 
 model = DECOMP(env,
                policy=decomp_pol,
                baseline="rollout",
-               batch_size=64,
-               train_data_size=128,
-               val_data_size=64,
+               batch_size=4,
+               train_data_size=10_000,
+               val_data_size=1_000,
                optimizer_kwargs={"lr": 1e-4},
                **policy_params
                ).to(device)
@@ -50,8 +50,8 @@ model = DECOMP(env,
 #                policy=policy,
 #                baseline="rollout",
 #                batch_size=64,
-#                train_data_size=128,
-#                val_data_size=64,
+#                train_data_size=10_000,
+#                val_data_size=1_000,
 #                optimizer_kwargs={"lr": 1e-4},
 #                ).to(device)
 
@@ -69,7 +69,7 @@ trainer = RL4COTrainer(
     max_epochs=4,
 #     logger=logger,
 #     log_every_n_steps=20,
-    precision=32,
+    precision="16-mixed",
     accelerator="cpu"
 )
 
