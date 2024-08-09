@@ -82,6 +82,7 @@ class DECOMP(REINFORCE):
                 sol = self.calculate_loss(td, batch.exclude("extra"), sol)
 
                 self.manual_backward(sol["loss"])
+                del sol["loss"]
 
                 sol = self.policy.recompose(td, sol, phase=phase, log_likelihoods=True)
                 td = td_base.copy()
