@@ -102,7 +102,7 @@ class REINFORCE(RL4COLitModule):
         # Main loss function
         advantage = reward - bl_val  # advantage = reward - baseline
         advantage = self.advantage_scaler(advantage)
-        reinforce_loss = -(advantage * log_likelihood).mean()
+        reinforce_loss = - (advantage * log_likelihood).mean()
         loss = reinforce_loss + bl_loss
         policy_out.update(
             {
