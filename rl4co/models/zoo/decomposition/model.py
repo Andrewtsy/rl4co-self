@@ -79,6 +79,7 @@ class DECOMP(REINFORCE):
                 td["action_mask"] = torch.concat((torch.ones((td.batch_size[0], 1), dtype=bool, device=device), td["problem_mask"]), dim=1)
 
                 sol = self.policy.policy(td, self.env, problem_mask=True, phase=phase, return_actions=True)
+                batch.pop("extra", None)
                 sol = self.calculate_loss(td, batch, sol)
 
                 self.manual_backward(sol["loss"])
