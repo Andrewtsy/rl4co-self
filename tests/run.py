@@ -26,7 +26,7 @@ env = CVRPEnv(generator_params={'num_loc': 500}).to(device)
 
 # td = env.reset(batch_size=[10]).to(device)
 
-policy_params = {"its": 2, "temp": 0, "r": 0}
+policy_params = {"its": 5, "temp": 0.1, "r": 0.9}
 policy = AttentionModelPolicy(env_name=env.name, 
                               embed_dim=128,
                               num_encoder_layers=3,
@@ -39,7 +39,7 @@ decomp_pol = BaryCenterDecomp(10, policy=policy, naive_policy=naive_pol).to(devi
 model = DECOMP(env,
                policy=decomp_pol,
                baseline="rollout",
-               batch_size=64,
+               batch_size=4,
                train_data_size=10_000,
                val_data_size=1_000,
                optimizer_kwargs={"lr": 1e-4},
@@ -49,7 +49,7 @@ model = DECOMP(env,
 # model = REINFORCE(env,
 #                policy=policy,
 #                baseline="rollout",
-#                batch_size=640,
+#                batch_size=64,
 #                train_data_size=10_000,
 #                val_data_size=1_000,
 #                optimizer_kwargs={"lr": 1e-4},
@@ -66,11 +66,11 @@ model = DECOMP(env,
 logger = WandbLogger(project="rl4co", name="am-decomp-2")
 
 trainer = RL4COTrainer(
-    max_epochs=8,
+    max_epochs=4,
     logger=logger,
-    log_every_n_steps=20,
+    log_every_n_steps=120,
     accelerator=accel,
-    precision="16-mixed"
+    precision="16-mixed",
 )
 
 trainer.fit(model)

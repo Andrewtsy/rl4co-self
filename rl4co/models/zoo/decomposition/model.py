@@ -53,47 +53,46 @@ class DECOMP(REINFORCE):
             policy = policy
         super().__init__(env, policy, baseline, **kwargs)
         self.automatic_optimization = False # Manual custom optimization
+        
+        @property
+        def automatic_optimization(self):
+            return False
 
     def shared_step(
         self, batch: Any, batch_idx: int, phase: str, dataloader_idx: int = None
     ):
         td = self.env.reset(batch)
         device = td.device
-        # Cache copy of our state dictionary to assist recomposition.
-        td_base = td.copy()
-        if batch is None: batch = td
 
-        if phase == 'train':
+        # Compute loss
+        if phase == "train":
             opt = self.optimizers()
-            # Generate initial solution using our naive policy
-            # Refrain from checking solution validity until the end of the evaluation
+
+            td_base = td.copy()
             sol = self.policy.naive_policy(td, self.env, return_actions=True)
 
             for _ in range(self.its):
-                # Decompose our state td and sol tensor into its k subproblems
-                # Returned td is reset to prepare for policy
+                opt.zero_grad()
                 self.env.check_solution = False
                 td, actions = self.policy.decompose(td, self.env, sol)
                 td = self.env.reset(td)
                 td["action_mask"] = torch.concat((torch.ones((td.batch_size[0], 1), dtype=bool, device=device), td["problem_mask"]), dim=1)
 
-                # Apply our constructive policy to each subproblem using parallelization
                 sol = self.policy.policy(td, self.env, problem_mask=True, phase=phase, return_actions=True)
-                sol = self.calculate_loss(td, batch.exclude("extra"), sol)
+                sol = self.calculate_loss(td, batch, sol)
 
                 self.manual_backward(sol["loss"])
+                opt.step()
 
                 sol = self.policy.recompose(td, sol, phase=phase, log_likelihoods=True)
                 td = td_base.copy()
 
-            self.clip_gradients(opt, gradient_clip_algorithm="norm")
             self.env.check_solution = True
-        
         else:
-            sol = self.policy(td, self.env, phase=phase)
+            # Perform forward pass (i.e., constructing solution and computing log-likelihoods)
+            sol = self.policy.policy(td, self.env, phase=phase, select_best=phase != "train")
 
         metrics = self.log_metrics(sol, phase, dataloader_idx=dataloader_idx)
-
         return {"loss": sol.get("loss", None), **metrics}
         
     def _forward_pass(
@@ -149,25 +148,3 @@ class DECOMP(REINFORCE):
 
             out = self.policy.recompose(td, out, phase=phase, log_likelihoods=True)
             return out
-
-    def backward(
-        self, trainer, loss: torch.Tensor = None, optimizer: Optimizer = None, optimizer_idx: int = None
-    ) -> None:
-        """
-        Override backward.
-        """
-        pass
-
-    # def post_setup_hook(self, stage="fit"):
-    #     # Make baseline taking model itself and train_dataloader from model as input
-    #     self.baseline.setup(
-    #         self.policy.policy,
-    #         self.env,
-    #         batch_size=self.val_batch_size,
-    #         device=get_lightning_device(self),
-    #         dataset_size=self.data_cfg["val_data_size"],
-    #     )
-
-    # def on_train_batch_start(self, batch=None, batch_idx=None, dataloader_idx=None):
-    #     print("Hit em with the Hook")
-    #     pass
