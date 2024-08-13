@@ -22,7 +22,7 @@ accel = str("cuda" if torch.cuda.is_available()
 device = torch.device(accel)
 print(device)
 
-env = CVRPEnv(generator_params={'num_loc': 100}).to(device)
+env = CVRPEnv(generator_params={'num_loc': 200}).to(device)
 
 # td = env.reset(batch_size=[10]).to(device)
 
@@ -34,14 +34,15 @@ policy = AttentionModelPolicy(env_name=env.name,
                               **policy_params
                             ).to(device)
 naive_pol = Naive().to(device)
-decomp_pol = BaryCenterDecomp(2, policy=policy, naive_policy=naive_pol).to(device)
+decomp_pol = BaryCenterDecomp(10, policy=policy, naive_policy=naive_pol).to(device)
 
 model = DECOMP(env,
                policy=decomp_pol,
                baseline="rollout",
+               baseline_kwargs={"n_epochs": 1},
                batch_size=4,
-               train_data_size=100,
-               val_data_size=20,
+               train_data_size=1_000,
+               val_data_size=100,
                optimizer_kwargs={"lr": 1e-4},
                **policy_params
                ).to(device)
