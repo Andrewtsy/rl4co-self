@@ -2,7 +2,7 @@
 
 #SBATCH --output=results/%j.out
 #SBATCH --error=results/%j.err
-#SBATCH -t 02:00:00
+#SBATCH -t 12:00:00
 #SBATCH -N 1
 #SBATCH -n 1
 #SBATCH -J "decomposition"
@@ -12,8 +12,6 @@
 #SBATCH -p gpu
 #SBATCH --gres=gpu:a100:1
 #SBATCH -A hpc-prf-winf4gpu
-#SBATCH --qos=devel 
-#SBATCH --partition=dgx
 
 export MKL_NUM_THREADS=1
 export NUMEXPR_NUM_THREADS=1
