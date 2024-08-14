@@ -100,7 +100,6 @@ class DecompPolicy(ImprovementPolicy):
             intermediates.append(sol["reward"])
         # print(sol["reward"])
         # Iterative loop to improve our solution
-        # better = 0
         for _ in range(self.its):
             # print(f"iteration {_}")
             # Decompose our state td and sol tensor into its k subproblems
@@ -122,13 +121,8 @@ class DecompPolicy(ImprovementPolicy):
             sol = TensorDict({"actions": actions, "reward": env._get_reward(td, actions)},
                              batch_size=td.batch_size[0],
                              device=td.device)
-            
-            # td_copy = td.clone()
-            # sol_copy = sol.clone()
-            # intermediates[f"Iteration {_}"] = [td_copy, sol_copy]
 
             mask = nsol["reward"] > sol["reward"]
-            # better += mask.sum()
 
             # Simulated Annealing
             tmp = torch.rand(mask.shape, device=td.device)
@@ -143,8 +137,6 @@ class DecompPolicy(ImprovementPolicy):
 
             # Recompose our decomposed state and solution to the original problem sizes
             # To save complexity at the cost of some memory, we use our cached state td
-            # sol_copy = res.clone()
-            
             sol = self.recompose(td, res, phase=phase)
             if history:
                 intermediates.append(sol["reward"])

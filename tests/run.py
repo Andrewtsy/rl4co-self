@@ -39,6 +39,7 @@ decomp_pol = BaryCenterDecomp(10, policy=policy, naive_policy=naive_pol).to(devi
 model = DECOMP(env,
                policy=decomp_pol,
                baseline="rollout",
+               baseline_kwargs={"n_epochs": 3},
                batch_size=16,
                train_data_size=10_000,
                val_data_size=1_000,
@@ -68,7 +69,7 @@ logger = WandbLogger(project="rl4co", name="am-decomp-3")
 trainer = RL4COTrainer(
     max_epochs=4,
     logger=logger,
-    log_every_n_steps=120,
+    log_every_n_steps=20,
     accelerator=accel,
     precision="16-mixed",
 )

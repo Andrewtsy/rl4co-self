@@ -3,7 +3,6 @@ import torch
 from torch.optim.optimizer import Optimizer
 from tensordict.tensordict import TensorDict
 
-from rl4co.utils.lightning import get_lightning_device
 from rl4co.envs.common.base import RL4COEnvBase
 from rl4co.models.rl.reinforce.reinforce import REINFORCE
 from rl4co.models.common import ImprovementPolicy, ConstructivePolicy
@@ -25,7 +24,7 @@ class DECOMP(REINFORCE):
         baseline: Baseline to use for the algorithm.
         its: Number of iterations of the improvement policy
         temp: Probability of accepting worse solution in simulated annealing (starting temperature)
-        r: Decay rate
+        r: SA temperature decay rate
         **kwargs: Keyword arguments passed to the superclass
     """
 
@@ -41,6 +40,7 @@ class DECOMP(REINFORCE):
         **kwargs,
     ):
         self.its, self.temp, self.r = its, temp, r
+
         # Set default decomposition policy to barycenter clustering technique from 
         # Santini et al. (Decomposition strategies for vehicle routing heuristics)
         if policy is None:
@@ -52,11 +52,11 @@ class DECOMP(REINFORCE):
         else:
             policy = policy
         super().__init__(env, policy, baseline, **kwargs)
-        self.automatic_optimization = False # Manual custom optimization
         
-        @property
-        def automatic_optimization(self):
-            return False
+    @property
+    def automatic_optimization(self):
+        # Manual custom optimization
+        return False
 
     def shared_step(
         self, batch: Any, batch_idx: int, phase: str, dataloader_idx: int = None
@@ -64,30 +64,36 @@ class DECOMP(REINFORCE):
         td = self.env.reset(batch)
         device = td.device
 
-        # Compute loss
         if phase == "train":
+            # Store the optimizers
             opt = self.optimizers()
 
             td_base = td.copy()
-            sol = self.policy.naive_policy(td, self.env, return_actions=True)
 
+            # Run through a full pass of multi iteration simulated annealing
+            # See forward pass of decomp policy for more info/comments
+            sol = self.policy.naive_policy(td, self.env, return_actions=True)
+            opt.zero_grad()
             for _ in range(self.its):
-                opt.zero_grad()
+
                 self.env.check_solution = False
-                td, actions = self.policy.decompose(td, self.env, sol)
+                td, _ = self.policy.decompose(td, self.env, sol)
                 td = self.env.reset(td)
                 td["action_mask"] = torch.concat((torch.ones((td.batch_size[0], 1), dtype=bool, device=device), td["problem_mask"]), dim=1)
-
                 sol = self.policy.policy(td, self.env, problem_mask=True, phase=phase, return_actions=True)
-                batch.pop("extra", None)
+                
+                # Calculate loss
+                batch.pop("extra", None) # Extra key is not used for our manual optimization
                 sol = self.calculate_loss(td, batch, sol)
 
+                # Manual backward pass and clip
                 self.manual_backward(sol["loss"])
-                opt.step()
 
                 sol = self.policy.recompose(td, sol, phase=phase, log_likelihoods=True)
                 td = td_base.copy()
-
+            
+            self.clip_gradients(opt, gradient_clip_val=0.5, gradient_clip_algorithm="norm")
+            opt.step()
             self.env.check_solution = True
         else:
             # Perform forward pass (i.e., constructing solution and computing log-likelihoods)
@@ -95,57 +101,3 @@ class DECOMP(REINFORCE):
 
         metrics = self.log_metrics(sol, phase, dataloader_idx=dataloader_idx)
         return {"loss": sol.get("loss", None), **metrics}
-        
-    def _forward_pass(
-        self,
-        td: TensorDict = None,
-        env: Union[str, RL4COEnvBase] = None,
-        batch: TensorDict = None,
-        phase: str = "train",
-        return_actions: bool = False,
-        return_entropy: bool = False,
-        return_init_embeds: bool = False,
-        actions=None,
-        **decoding_kwargs,
-    ) -> dict:
-        """Forward pass of the decomposition policy.
-
-        Args:
-            td: Tensordict state
-            env: Environment our states are in
-            sol: Dictionary of current best solution
-            its: Number of iterations of the improvement policy
-            temp: Probability of accepting worse solution in simulated annealing (starting temperature)
-            r: Decay rate
-            history: return list of iteration rewards?
-        Returns:
-            out: Dictionary containing actions, reward
-        """
-        device = td.device
-        # Cache copy of our state dictionary to assist recomposition.
-        td_base = td.copy()
-        if batch is None:
-            batch = td
-        # Generate initial solution using our naive policy
-        # Refrain from checking solution validity until the end of the evaluation
-        env.check_solution = False
-        sol = self.policy.naive_policy(td, env, return_actions=True)
-
-        for _ in range(self.its):
-            # Decompose our state td and sol tensor into its k subproblems
-            # Returned td is reset to prepare for policy
-            td, actions = self.policy.decompose(td, env, sol)
-            td = env.reset(td)
-            td["action_mask"] = torch.concat((torch.ones((td.batch_size[0], 1), dtype=bool, device=device), td["problem_mask"]), dim=1)
-
-            # Apply our constructive policy to each subproblem using parallelization
-            out = self.policy.policy(td, env, problem_mask=True, phase=phase, return_actions=True, **decoding_kwargs)
-
-            if phase == "train":
-                opt = self.optimizers()
-                batch.drop("extra", None)
-                out = self.calculate_loss(td, batch, out)
-                out["loss"].backward()
-
-            out = self.policy.recompose(td, out, phase=phase, log_likelihoods=True)
-            return out
