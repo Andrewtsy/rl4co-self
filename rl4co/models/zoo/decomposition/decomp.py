@@ -104,10 +104,11 @@ class DecompPolicy(ImprovementPolicy):
             # print(f"iteration {_}")
             # Decompose our state td and sol tensor into its k subproblems
             # Returned td is reset to prepare for policy
+
             td, actions = self.decompose(td, env, sol)
             td = env.reset(td)
             td["action_mask"] = torch.concat((torch.ones((td.batch_size[0], 1), device=td.device, dtype=bool), td["problem_mask"]), dim=1)
-                        
+
             # Apply our constructive policy to each subproblem using parallelization
             nsol = self.policy(td, env, problem_mask=True, phase=phase, return_actions=True, **decoding_kwargs)
 
@@ -142,6 +143,7 @@ class DecompPolicy(ImprovementPolicy):
                 intermediates.append(sol["reward"])
             # print(sol["reward"].mean())
             td = td_base.copy()
+
         env.check_solution = True
         env.check_solution_validity(td, sol["actions"])
         # print(f"Final Reward improvement: {sol['reward'].mean() - init_reward}")

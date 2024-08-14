@@ -28,9 +28,10 @@ class BaryCenterDecomp(DecompPolicy):
         policy: ConstructivePolicy = None,
         policy_kwargs: dict = {},
         naive_policy: ConstructivePolicy = None,
-        naive_policy_kwargs: dict = {}
+        naive_policy_kwargs: dict = {},
+        **kwargs
     ):
-        super().__init__(num_subproblems, env_name, policy, policy_kwargs, naive_policy, naive_policy_kwargs)
+        super().__init__(num_subproblems, env_name, policy, policy_kwargs, naive_policy, naive_policy_kwargs, **kwargs)
 
         self.k = num_subproblems
         self.kmeans = KMeans(n_clusters=self.k)
@@ -61,7 +62,7 @@ class BaryCenterDecomp(DecompPolicy):
             labels = torch.tensor(self.kmeans.fit_predict(BaryCenterDecomp.no_nan(barycenters[i])), dtype=torch.int64, device=device)
             for j in range(len(labels)):
                 # For each subproblem, note which nodes belong to them
-                subproblems[i, locs_idx[i] == j] = labels[j]
+                subproblems[i, locs_idx[i] - 1 == j] = labels[j]
 
         return subproblems
     
@@ -85,7 +86,7 @@ class Naive(ConstructivePolicy):
         self,
         env_name: str = "cvrp",
     ):
-        super(Naive, self).__init__(None, None, env_name)
+        super().__init__(encoder=None, decoder=None, env_name=env_name)
 
     def forward(
         self,
