@@ -77,6 +77,7 @@ class REINFORCE(RL4COLitModule):
         policy_out: dict,
         reward: Optional[torch.Tensor] = None,
         log_likelihood: Optional[torch.Tensor] = None,
+        use_extra: bool = True
     ):
         """Calculate loss for REINFORCE algorithm.
 
@@ -88,7 +89,7 @@ class REINFORCE(RL4COLitModule):
             log_likelihood: Log-likelihood tensor. If None, it is taken from `policy_out`
         """
         # Extra: this is used for additional loss terms, e.g., REINFORCE baseline
-        extra = batch.get("extra", None)
+        extra = batch.get("extra", None) if use_extra else None
         reward = reward if reward is not None else policy_out["reward"]
         log_likelihood = (
             log_likelihood if log_likelihood is not None else policy_out["log_likelihood"]
