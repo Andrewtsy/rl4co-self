@@ -41,8 +41,8 @@ model = DECOMP(env,
                baseline="rollout",
                baseline_kwargs={"n_epochs": 3},
                batch_size=16,
-               train_data_size=10_000,
-               val_data_size=1_000,
+               train_data_size=50_000,
+               val_data_size=5_000,
                optimizer_kwargs={"lr": 1e-4},
                **policy_params
                ).to(device)
@@ -64,10 +64,10 @@ model = DECOMP(env,
 #                 val_data_size=5_000,
 #                 optimizer_kwargs={"lr": 1e-4}).to(device)
 
-logger = WandbLogger(project="rl4co", name="am-decomp-3")
+logger = WandbLogger(project="rl4co", name="am-decomp-4")
 
 trainer = RL4COTrainer(
-    max_epochs=4,
+    max_epochs=5,
     logger=logger,
     log_every_n_steps=20,
     accelerator=accel,
