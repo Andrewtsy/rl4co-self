@@ -17,6 +17,7 @@
 *.ckpt
 !checkpoints/am-a2c-cvrp50.ckpt
 !checkpoints/am_cvrp50_2024_7_25.ckpt
+!checkpoints/am_decomp5.ckpt
 
 # Hydra
 .hydra/
